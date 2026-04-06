@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if player else 'Add' }} Player — TourneyTracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h2 class="mb-4">
+      <i class="bi bi-person-{{ 'gear' if player else 'plus' }} text-warning me-2"></i>
+      {{ 'Edit Player' if player else 'Add Player' }}
+    </h2>
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" required autofocus
+                   value="{{ player.name if player else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Phone Number</label>
+            <input type="tel" name="phone" class="form-control" placeholder="e.g. 555-867-5309"
+                   value="{{ player.phone or '' if player else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Email Address</label>
+            <input type="email" name="email" class="form-control" placeholder="player@example.com"
+                   value="{{ player.email or '' if player else '' }}">
+          </div>
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Fargo Rating <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="number" name="fargo_rating" class="form-control" placeholder="e.g. 512"
+                   min="1" max="999"
+                   value="{{ player.fargo_rating or '' if player else '' }}">
+            <div class="form-text">Leave blank if not Fargo rated.</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-warning flex-fill">
+              <i class="bi bi-check-circle me-1"></i>{{ 'Save Changes' if player else 'Add Player' }}
+            </button>
+            <a href="{{ url_for('players') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

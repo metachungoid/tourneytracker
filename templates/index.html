@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+{% block title %}TourneyTracker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h2 class="mb-0"><i class="bi bi-trophy-fill text-warning me-2"></i>Tournaments</h2>
+  {% if current_user.is_authenticated %}
+  <a href="{{ url_for('new_tournament') }}" class="btn btn-warning">
+    <i class="bi bi-plus-circle me-1"></i>New Tournament
+  </a>
+  {% endif %}
+</div>
+
+<!-- Upcoming Tournaments -->
+<h4 class="mb-3 text-info"><i class="bi bi-calendar-event me-2"></i>Upcoming</h4>
+{% if upcoming %}
+<div class="row g-3 mb-5">
+  {% for t in upcoming %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 class="card-title mb-1">{{ t.name }}</h5>
+          <span class="badge {% if t.status == 'open' %}bg-success{% else %}bg-primary{% endif %}">
+            {{ t.status|capitalize }}
+          </span>
+        </div>
+        <p class="text-muted small mb-1">
+          <i class="bi bi-calendar3 me-1"></i>
+          {{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else 'Date TBD' }}
+          &nbsp;<span class="badge bg-secondary" style="font-size:0.65rem">{{ t.format_label }}</span>
+        </p>
+        <p class="text-muted small mb-2">
+          <i class="bi bi-people-fill me-1"></i>{{ t.num_players }} players &nbsp;|&nbsp;
+          <i class="bi bi-currency-dollar me-1"></i>{{ t.buyin }} buy-in
+        </p>
+        {% if t.num_players > 0 %}
+        <p class="mb-0 fw-semibold text-success">
+          <i class="bi bi-cash-stack me-1"></i>Est. Prize Pool: ${{ t.prize_pool }}
+        </p>
+        {% else %}
+        <p class="mb-0 text-muted small">Prize pool TBD — no players registered yet</p>
+        {% endif %}
+      </div>
+      <div class="card-footer d-flex gap-2">
+        {% if current_user.is_authenticated %}
+          {% if t.status == 'open' %}
+            <a href="{{ url_for('tournament', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
+              <i class="bi bi-pencil me-1"></i>Manage
+            </a>
+          {% else %}
+            <a href="{{ url_for('bracket', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
+              <i class="bi bi-diagram-3 me-1"></i>Bracket
+            </a>
+          {% endif %}
+          <form method="post" action="{{ url_for('delete_tournament', tid=t.id) }}"
+                onsubmit="return confirm('Delete {{ t.name }}?')">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+        {% else %}
+          {% if t.status != 'open' %}
+            <a href="{{ url_for('bracket', tid=t.id) }}" class="btn btn-sm btn-outline-secondary flex-fill">
+              <i class="bi bi-diagram-3 me-1"></i>View Bracket
+            </a>
+          {% else %}
+            <span class="text-muted small align-self-center">Registration open</span>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted mb-5">No upcoming tournaments.
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('new_tournament') }}">Create one!</a>
+  {% endif %}
+</p>
+{% endif %}
+
+<!-- Past Tournaments -->
+<h4 class="mb-3 text-secondary"><i class="bi bi-clock-history me-2"></i>Past Tournaments</h4>
+{% if past %}
+<div class="row g-3">
+  {% for t in past %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100 shadow-sm opacity-75">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 class="card-title mb-1">{{ t.name }}</h5>
+          <span class="badge bg-secondary">Complete</span>
+        </div>
+        <p class="text-muted small mb-1">
+          <i class="bi bi-calendar3 me-1"></i>
+          {{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else '—' }}
+          &nbsp;<span class="badge bg-secondary" style="font-size:0.65rem">{{ t.format_label }}</span>
+        </p>
+        <p class="text-muted small mb-2">
+          <i class="bi bi-people-fill me-1"></i>{{ t.num_players }} players &nbsp;|&nbsp;
+          <i class="bi bi-currency-dollar me-1"></i>{{ t.buyin }} buy-in
+        </p>
+        {% if t.champion %}
+        <p class="mb-0 fw-semibold text-warning">
+          <i class="bi bi-trophy-fill me-1"></i>{{ t.champion.name }}
+          <span class="text-muted fw-normal small">&nbsp;— ${{ t.prize_pool }}</span>
+        </p>
+        {% endif %}
+      </div>
+      <div class="card-footer d-flex gap-2">
+        <a href="{{ url_for('bracket', tid=t.id) }}" class="btn btn-sm btn-outline-secondary flex-fill">
+          <i class="bi bi-diagram-3 me-1"></i>View Bracket
+        </a>
+        {% if current_user.is_authenticated %}
+        <form method="post" action="{{ url_for('delete_tournament', tid=t.id) }}"
+              onsubmit="return confirm('Delete {{ t.name }}?')">
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No completed tournaments yet.</p>
+{% endif %}
+{% endblock %}

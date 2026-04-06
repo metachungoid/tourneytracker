@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+{% block title %}New Tournament — TourneyTracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7 col-lg-6">
+    <h2 class="mb-4"><i class="bi bi-trophy me-2 text-warning"></i>New Tournament</h2>
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <form method="post" id="tourneyForm">
+
+          <!-- Name & Date -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tournament Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control"
+                   placeholder="e.g. Spring Pool Classic" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Tournament Date</label>
+            <input type="date" name="tournament_date" class="form-control">
+            <div class="form-text">Leave blank if date is TBD.</div>
+          </div>
+
+          <!-- Format -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Format</label>
+            <div class="d-flex gap-2 flex-wrap">
+              <div class="form-check format-card">
+                <input class="form-check-input" type="radio" name="format" id="fmt-single"
+                       value="single" checked>
+                <label class="form-check-label" for="fmt-single">
+                  <i class="bi bi-diagram-3 me-1"></i>Single Elim
+                  <div class="small text-muted">One loss = out</div>
+                </label>
+              </div>
+              <div class="form-check format-card">
+                <input class="form-check-input" type="radio" name="format" id="fmt-double"
+                       value="double">
+                <label class="form-check-label" for="fmt-double">
+                  <i class="bi bi-diagram-3-fill me-1"></i>Double Elim
+                  <div class="small text-muted">Two losses = out (min 4 players)</div>
+                </label>
+              </div>
+              <div class="form-check format-card">
+                <input class="form-check-input" type="radio" name="format" id="fmt-race3"
+                       value="race3">
+                <label class="form-check-label" for="fmt-race3">
+                  <i class="bi bi-bullseye me-1"></i>Race to 3
+                  <div class="small text-muted">First to 3 wins per match</div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Race To (shown only for race3) -->
+          <div class="mb-3" id="raceToRow" style="display:none">
+            <label class="form-label fw-semibold">Race To</label>
+            <div class="input-group" style="max-width:160px">
+              <input type="number" name="race_to" id="race_to" class="form-control"
+                     min="1" max="20" value="3">
+              <span class="input-group-text">games</span>
+            </div>
+            <div class="form-text">First player to reach this wins the match.</div>
+          </div>
+
+          <!-- Fargo Rating -->
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="fargo_rated"
+                     id="fargoRated" value="1">
+              <label class="form-check-label fw-semibold" for="fargoRated">
+                Fargo Rated Tournament
+                <span class="text-muted fw-normal small ms-1">— shows player Fargo ratings on the bracket</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Seeding -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Seeding</label>
+            <select name="seeding" class="form-select">
+              <option value="random">Random draw</option>
+              <option value="rankings">By current rankings (top seeds separated)</option>
+            </select>
+            <div class="form-text">Rankings seeding keeps top players apart until later rounds.</div>
+          </div>
+
+          <!-- Buy-in -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Buy-in Fee ($ per player)</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" name="buyin" id="buyin" class="form-control"
+                     min="0" step="1" value="10" required>
+            </div>
+            <div class="form-text">$1 per game played will be deducted as a table fee.</div>
+          </div>
+
+          <!-- Prize Split -->
+          <div class="mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-semibold mb-0">Prize Split</label>
+              <button type="button" class="btn btn-outline-success btn-sm" onclick="addPlace()">
+                <i class="bi bi-plus-circle me-1"></i>Add Place
+              </button>
+            </div>
+
+            <div id="splitRows"></div>
+
+            <!-- Summary bar -->
+            <div class="mt-2 p-2 rounded" id="splitSummary" style="background:#0f3460; font-size:0.82rem">
+              <div class="d-flex justify-content-between align-items-center">
+                <span>Total: <strong id="totalPct">100</strong>%</span>
+                <span id="houseKeep" class="text-muted"></span>
+              </div>
+              <div class="progress mt-1" style="height:6px">
+                <div class="progress-bar" id="splitBar" style="width:100%;background:#ffc107"></div>
+              </div>
+              <div class="mt-1 small text-muted">Exact payouts calculated once players register.</div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-warning flex-fill fw-bold">
+              <i class="bi bi-plus-circle me-1"></i>Create Tournament
+            </button>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th'];
+let placeCount = 0;
+
+function addPlace(pct) {
+  placeCount++;
+  const idx = placeCount;
+  const label = ORDINALS[idx - 1] || `${idx}th`;
+  const defaultPct = pct !== undefined ? pct : '';
+
+  const row = document.createElement('div');
+  row.className = 'split-row d-flex align-items-center gap-2 mb-2';
+  row.dataset.idx = idx;
+  row.innerHTML = `
+    <span class="split-place-label badge bg-secondary" style="min-width:2.8rem">${label}</span>
+    <div class="input-group input-group-sm flex-fill">
+      <input type="number" name="split_pct_${idx}" class="form-control split-pct"
+             min="1" max="100" value="${defaultPct}" placeholder="%" required
+             oninput="updateTotals()">
+      <span class="input-group-text">%</span>
+    </div>
+    <button type="button" class="btn btn-xs btn-outline-danger" onclick="removePlace(this)"
+            title="Remove">
+      <i class="bi bi-x"></i>
+    </button>
+  `;
+  document.getElementById('splitRows').appendChild(row);
+  reindexRows();
+  updateTotals();
+}
+
+function removePlace(btn) {
+  btn.closest('.split-row').remove();
+  reindexRows();
+  updateTotals();
+}
+
+function reindexRows() {
+  const rows = document.querySelectorAll('.split-row');
+  rows.forEach((row, i) => {
+    const idx = i + 1;
+    row.dataset.idx = idx;
+    const label = ORDINALS[i] || `${idx}th`;
+    row.querySelector('.split-place-label').textContent = label;
+    row.querySelector('input[type=number]').name = `split_pct_${idx}`;
+  });
+  placeCount = rows.length;
+}
+
+function updateTotals() {
+  const inputs = document.querySelectorAll('.split-pct');
+  let total = 0;
+  inputs.forEach(inp => { total += parseInt(inp.value) || 0; });
+  document.getElementById('totalPct').textContent = total;
+  const bar = document.getElementById('splitBar');
+  const summary = document.getElementById('splitSummary');
+  const house = document.getElementById('houseKeep');
+  if (total > 100) {
+    bar.style.width = '100%';
+    bar.style.background = '#dc3545';
+    summary.style.borderLeft = '3px solid #dc3545';
+    house.textContent = `⚠ Exceeds 100% by ${total - 100}%`;
+    house.style.color = '#dc3545';
+  } else {
+    bar.style.width = total + '%';
+    bar.style.background = '#ffc107';
+    summary.style.borderLeft = '3px solid #ffc107';
+    const rem = 100 - total;
+    house.textContent = rem > 0 ? `${rem}% stays with house` : '';
+    house.style.color = '#888';
+  }
+}
+
+
+
+// Show/hide Race To row based on format selection
+document.querySelectorAll('input[name=format]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('raceToRow').style.display =
+      r.value === 'race3' ? '' : 'none';
+  });
+});
+
+// Seed defaults on page load: 70 / 30
+addPlace(70);
+addPlace(30);
+</script>
+{% endblock %}

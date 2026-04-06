@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% block title %}{{ t.name }} — Bracket{% endblock %}
+
+{% macro match_card(match, t, show_controls) %}
+{% set p1 = match.player1.profile if match.player1 else None %}
+{% set p2 = match.player2.profile if match.player2 else None %}
+<div class="match-card {% if match.winner_id %}match-done{% endif %}">
+
+  {# ── Player 1 ── #}
+  <div class="match-slot
+    {% if match.winner_id and match.winner_id == match.player1_id %}slot-winner
+    {% elif match.winner_id and match.winner_id != match.player1_id %}slot-loser{% endif %}">
+    {% if p1 %}
+      {% if t.format == 'race3' and not match.winner_id %}
+        <span class="score-badge">{{ match.score1 or 0 }}</span>
+      {% elif match.winner_id and match.winner_id == match.player1_id %}
+        {% if t.format == 'race3' %}
+          <span class="score-badge score-win">{{ match.score1 or 0 }}</span>
+        {% else %}
+          <i class="bi bi-check-circle-fill text-success me-1 small"></i>
+        {% endif %}
+      {% elif match.winner_id %}
+        {% if t.format == 'race3' %}
+          <span class="score-badge score-lose">{{ match.score1 or 0 }}</span>
+        {% endif %}
+      {% endif %}
+      <span class="player-name">{{ p1.name }}{% if t.fargo_rated and p1.fargo_rating %} <span class="fargo-badge">{{ p1.fargo_rating }}</span>{% endif %}</span>
+      {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
+        {% if t.format == 'race3' %}
+          <form method="post"
+                action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=1) }}"
+                class="d-inline ms-auto">
+            <button class="btn btn-xs btn-outline-primary" title="+1 point">+1</button>
+          </form>
+        {% else %}
+          <form method="post"
+                action="{{ url_for('set_winner', tid=t.id, mid=match.id, part_id=match.player1_id) }}"
+                class="d-inline ms-auto">
+            <button class="btn btn-xs btn-outline-success" title="Mark as winner">W</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <span class="text-muted fst-italic small">BYE</span>
+    {% endif %}
+  </div>
+
+  <div class="match-divider"></div>
+
+  {# ── Player 2 ── #}
+  <div class="match-slot
+    {% if match.winner_id and match.winner_id == match.player2_id %}slot-winner
+    {% elif match.winner_id and match.winner_id != match.player2_id %}slot-loser{% endif %}">
+    {% if p2 %}
+      {% if t.format == 'race3' and not match.winner_id %}
+        <span class="score-badge">{{ match.score2 or 0 }}</span>
+      {% elif match.winner_id and match.winner_id == match.player2_id %}
+        {% if t.format == 'race3' %}
+          <span class="score-badge score-win">{{ match.score2 or 0 }}</span>
+        {% else %}
+          <i class="bi bi-check-circle-fill text-success me-1 small"></i>
+        {% endif %}
+      {% elif match.winner_id %}
+        {% if t.format == 'race3' %}
+          <span class="score-badge score-lose">{{ match.score2 or 0 }}</span>
+        {% endif %}
+      {% endif %}
+      <span class="player-name">{{ p2.name }}{% if t.fargo_rated and p2.fargo_rating %} <span class="fargo-badge">{{ p2.fargo_rating }}</span>{% endif %}</span>
+      {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
+        {% if t.format == 'race3' %}
+          <form method="post"
+                action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=2) }}"
+                class="d-inline ms-auto">
+            <button class="btn btn-xs btn-outline-primary" title="+1 point">+1</button>
+          </form>
+        {% else %}
+          <form method="post"
+                action="{{ url_for('set_winner', tid=t.id, mid=match.id, part_id=match.player2_id) }}"
+                class="d-inline ms-auto">
+            <button class="btn btn-xs btn-outline-success" title="Mark as winner">W</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <span class="text-muted fst-italic small">BYE</span>
+    {% endif %}
+  </div>
+
+  {# ── Change winner (admin misclick correction) ── #}
+  {% if show_controls and current_user.is_authenticated and match.winner_id and p1 and p2 %}
+  <div class="match-change-bar">
+    <form method="post"
+          action="{{ url_for('clear_winner', tid=t.id, mid=match.id) }}"
+          onsubmit="return confirm('Clear this result? All downstream matches will be reset.')">
+      <button class="btn btn-xs btn-outline-warning w-100" title="Undo winner">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Change Winner
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
+  <h2 class="mb-0"><i class="bi bi-diagram-3-fill text-primary me-2"></i>{{ t.name }}</h2>
+  <span class="badge {% if t.status == 'complete' %}bg-secondary{% else %}bg-primary{% endif %} fs-6">
+    {{ t.status|capitalize }}
+  </span>
+  <span class="badge bg-info text-dark">{{ t.format_label }}</span>
+  {% if t.fargo_rated %}<span class="badge bg-purple">Fargo Rated</span>{% endif %}
+  {% if t.tournament_date %}
+    <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ t.tournament_date.strftime('%b %d, %Y') }}</span>
+  {% endif %}
+  {% if not current_user.is_authenticated and t.status != 'complete' %}
+    <span class="badge bg-danger live-badge" id="live-badge">
+      <i class="bi bi-broadcast me-1"></i>LIVE · refreshing in <span id="live-countdown">15</span>s
+    </span>
+  {% endif %}
+</div>
+
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold">{{ t.num_players }}</div>
+        <div class="small text-muted">Players</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold">${{ t.buyin }}</div>
+        <div class="small text-muted">Buy-in</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 bg-success text-white">
+      <div class="card-body py-2">
+        <div class="fs-4 fw-bold">${{ t.prize_pool }}</div>
+        <div class="small">Prize Pool</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-3">
+    <div class="card text-center border-0 bg-warning text-dark">
+      <div class="card-body py-2">
+        {% for p in t.prize_payouts %}
+        <div class="{% if loop.first %}fs-5 fw-bold{% else %}small{% endif %}">
+          {{ p.label }}: ${{ p.amount }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if t.format == 'race3' %}
+<div class="alert alert-info py-2 mb-3">
+  <i class="bi bi-bullseye me-1"></i><strong>Race to 3</strong> — first player to win 3 games takes the match.
+</div>
+{% endif %}
+
+<!-- Champion banner -->
+{% if t.champion %}
+<div class="alert alert-warning text-center mb-4">
+  {% set payouts = t.prize_payouts %}
+  <div class="fs-5 fw-bold">
+    <i class="bi bi-trophy-fill me-2"></i>Champion: {{ t.champion.name }}
+    {% if payouts %}<span class="fs-6 fw-normal ms-2">— ${{ payouts[0].amount }}</span>{% endif %}
+  </div>
+  {% if t.runner_up %}
+  <div class="mt-1">
+    <i class="bi bi-award me-1"></i>Runner-up: {{ t.runner_up.name }}
+    {% if payouts|length > 1 %}<span class="text-muted fs-6 ms-1">— ${{ payouts[1].amount }}</span>{% endif %}
+  </div>
+  {% endif %}
+  {% if payouts|length > 2 %}
+  <div class="mt-1 small text-muted">
+    {% for p in payouts[2:] %}{{ p.label }}: ${{ p.amount }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Admin actions -->
+{% if current_user.is_authenticated %}
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  <a href="{{ url_for('tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back to Roster
+  </a>
+  <a href="{{ url_for('bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
+    <i class="bi bi-printer me-1"></i>Print / Share
+  </a>
+  <form method="post" action="{{ url_for('reset_tournament', tid=t.id) }}"
+        onsubmit="return confirm('Reset bracket and reopen registration?')">
+    <button class="btn btn-outline-warning btn-sm">
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Bracket
+    </button>
+  </form>
+</div>
+{% else %}
+<div class="d-flex gap-2 mb-4">
+  <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Back
+  </a>
+  <a href="{{ url_for('bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
+    <i class="bi bi-printer me-1"></i>Print / Share
+  </a>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════ WINNERS BRACKET ═══════════════════════════ -->
+{% if t.format == 'double' %}
+<h5 class="bracket-section-title text-primary mb-2">
+  <i class="bi bi-trophy me-2"></i>Winners Bracket
+</h5>
+{% endif %}
+<div class="bracket-wrapper">
+  <div class="bracket">
+    {% for r in range(1, num_wr_rounds + 1) %}
+    <div class="bracket-round">
+      <div class="round-label">
+        {% if r == num_wr_rounds and t.format != 'double' %}Finals
+        {% elif r == num_wr_rounds - 1 and num_wr_rounds > 2 and t.format != 'double' %}Semi-Finals
+        {% elif r == num_wr_rounds and t.format == 'double' %}WB Finals
+        {% else %}Round {{ r }}{% endif %}
+      </div>
+      {% for match in wr_rounds[r] %}
+        {{ match_card(match, t, true) }}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ═══════════════════════════ LOSERS BRACKET ════════════════════════════ -->
+{% if t.format == 'double' and lb_rounds %}
+<h5 class="bracket-section-title text-danger mt-4 mb-2">
+  <i class="bi bi-arrow-down-circle me-2"></i>Losers Bracket
+</h5>
+<div class="bracket-wrapper">
+  <div class="bracket">
+    {% for r in range(1, num_lb_rounds + 1) %}
+    <div class="bracket-round">
+      <div class="round-label lb-label">
+        {% if r == num_lb_rounds %}LB Finals
+        {% else %}LB Round {{ r }}{% endif %}
+      </div>
+      {% for match in lb_rounds[r] %}
+        {{ match_card(match, t, true) }}
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Grand Final -->
+{% if gf_match %}
+<h5 class="bracket-section-title text-warning mt-4 mb-2">
+  <i class="bi bi-star-fill me-2"></i>Grand Final
+</h5>
+<div class="bracket-wrapper">
+  <div class="bracket">
+    <div class="bracket-round">
+      <div class="round-label gf-label">Grand Final</div>
+      {{ match_card(gf_match, t, true) }}
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{% if not current_user.is_authenticated and t.status != 'complete' %}
+<script>
+(function() {
+  let seconds = 15;
+  const el = document.getElementById('live-countdown');
+  let statusHash = null;
+
+  function poll() {
+    fetch('{{ url_for("bracket_status", tid=t.id) }}')
+      .then(r => r.json())
+      .then(data => {
+        const h = data.status + ':' + data.decided;
+        if (statusHash && h !== statusHash) { location.reload(); return; }
+        statusHash = h;
+      })
+      .catch(() => {});
+  }
+
+  poll();
+  const ticker = setInterval(() => {
+    seconds--;
+    if (el) el.textContent = seconds;
+    if (seconds <= 0) { poll(); seconds = 15; }
+  }, 1000);
+
+  // Cancel if user interacts (they may be actively watching)
+  document.addEventListener('click', () => {
+    clearInterval(ticker);
+    const badge = document.getElementById('live-badge');
+    if (badge) badge.style.display = 'none';
+  }, { once: true });
+})();
+</script>
+{% endif %}
+{% endblock %}

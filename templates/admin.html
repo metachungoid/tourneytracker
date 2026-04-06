@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% block title %}Admin Panel — TourneyTracker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4">
+  <h2 class="mb-0"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Admin Panel</h2>
+  <span class="badge bg-secondary">{{ current_user.username }}</span>
+</div>
+
+<!-- Security note -->
+<div class="alert alert-info py-2 mb-4 d-flex gap-2 align-items-start">
+  <i class="bi bi-lock-fill mt-1 flex-shrink-0"></i>
+  <div class="small">
+    <strong>Passwords are hashed</strong> using PBKDF2-SHA256 (via Werkzeug). The database stores
+    a one-way hash — plain-text passwords are never saved and cannot be recovered.
+    This app runs over HTTP on a local network; do not expose port 5050 to the internet.
+  </div>
+</div>
+
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-sm-2">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-warning">{{ stats.tournaments }}</div>
+        <div class="small text-muted">Total</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-2">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">{{ stats.open }}</div>
+        <div class="small text-muted">Open</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-2">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-primary">{{ stats.in_progress }}</div>
+        <div class="small text-muted">In Progress</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-2">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-info">{{ stats.complete }}</div>
+        <div class="small text-muted">Complete</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-2">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold text-success">{{ stats.players }}</div>
+        <div class="small text-muted">Players</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-sm-2">
+    <div class="card text-center border-0 bg-dark text-white">
+      <div class="card-body py-3">
+        <div class="fs-2 fw-bold">{{ stats.matches }}</div>
+        <div class="small text-muted">Matches</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-5">
+
+  <!-- Change Password -->
+  <div class="col-md-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-key-fill me-2"></i>Change Your Password
+        <span class="text-muted fw-normal small ms-1">({{ current_user.username }})</span>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin_change_password') }}">
+          <div class="mb-3">
+            <label class="form-label small">Current Password</label>
+            <input type="password" name="current_password" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">New Password <span class="text-muted">(min 6 chars)</span></label>
+            <input type="password" name="new_password" class="form-control" required minlength="6">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Confirm New Password</label>
+            <input type="password" name="confirm_password" class="form-control" required minlength="6">
+          </div>
+          <button type="submit" class="btn btn-warning w-100 fw-bold">
+            <i class="bi bi-check-circle me-1"></i>Update Password
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Accounts -->
+  <div class="col-md-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-people-fill me-2"></i>Admin Accounts
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for a in admins %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <i class="bi bi-person-badge me-2 text-warning"></i>
+            <strong>{{ a.username }}</strong>
+            {% if a.id == current_user.id %}
+              <span class="badge bg-primary ms-1 small">you</span>
+            {% endif %}
+            <div class="small text-muted ms-4" style="font-family:monospace;font-size:0.65rem">
+              {{ a.password_hash[:20] }}… <span class="text-success">(hashed)</span>
+            </div>
+          </div>
+          {% if a.id != current_user.id %}
+          <form method="post" action="{{ url_for('admin_delete_admin', aid=a.id) }}"
+                onsubmit="return confirm('Remove admin {{ a.username }}?')">
+            <button class="btn btn-sm btn-outline-danger py-0">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <!-- Add Admin -->
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-person-plus-fill me-2"></i>Add Admin Account
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin_add_admin') }}">
+          <div class="mb-2">
+            <input type="text" name="username" class="form-control form-control-sm"
+                   placeholder="Username" required>
+          </div>
+          <div class="mb-3">
+            <input type="password" name="password" class="form-control form-control-sm"
+                   placeholder="Password (min 6 chars)" required minlength="6">
+          </div>
+          <button type="submit" class="btn btn-outline-success btn-sm w-100">
+            <i class="bi bi-plus-circle me-1"></i>Create Admin
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick links -->
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold"><i class="bi bi-grid me-2"></i>Quick Links</div>
+      <div class="card-body d-flex flex-column gap-2">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-house me-1"></i>Home
+        </a>
+        <a href="{{ url_for('players') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-people me-1"></i>Player Registry
+        </a>
+        <a href="{{ url_for('rankings') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-bar-chart me-1"></i>Rankings
+        </a>
+        <a href="{{ url_for('new_tournament') }}" class="btn btn-outline-warning btn-sm">
+          <i class="bi bi-plus-circle me-1"></i>New Tournament
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ Tournaments DB ═══ -->
+<h5 class="mb-3 text-warning"><i class="bi bi-diagram-3 me-2"></i>All Tournaments</h5>
+<div class="table-responsive mb-5">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Date</th>
+        <th>Format</th>
+        <th class="text-center">Status</th>
+        <th class="text-center">Players</th>
+        <th class="text-center">Buy-in</th>
+        <th>Champion</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tournaments %}
+      <tr>
+        <td class="text-muted small">{{ t.id }}</td>
+        <td class="fw-semibold">{{ t.name }}</td>
+        <td class="text-muted small">{{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else '—' }}</td>
+        <td class="small">{{ t.format_label }}{% if t.fargo_rated %} <span class="fargo-badge">F</span>{% endif %}</td>
+        <td class="text-center">
+          <span class="badge {% if t.status == 'complete' %}bg-secondary{% elif t.status == 'bracket' %}bg-primary{% else %}bg-success{% endif %}">
+            {{ t.status }}
+          </span>
+        </td>
+        <td class="text-center">{{ t.num_players }}</td>
+        <td class="text-center">${{ t.buyin }}</td>
+        <td class="small">
+          {% if t.champion %}<i class="bi bi-trophy-fill text-warning me-1"></i>{{ t.champion.name }}{% else %}—{% endif %}
+        </td>
+        <td class="text-end">
+          {% if t.status == 'open' %}
+            <a href="{{ url_for('tournament', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Manage</a>
+          {% else %}
+            <a href="{{ url_for('bracket', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Bracket</a>
+          {% endif %}
+          <form method="post" action="{{ url_for('delete_tournament', tid=t.id) }}"
+                class="d-inline" onsubmit="return confirm('Delete {{ t.name }}?')">
+            <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="text-muted text-center">No tournaments yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ Players DB ═══ -->
+<h5 class="mb-3 text-info"><i class="bi bi-people-fill me-2"></i>All Players</h5>
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th class="text-center">Fargo</th>
+        <th class="text-center">Titles</th>
+        <th class="text-center">Match Wins</th>
+        <th class="text-center">Tournaments</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in players %}
+      <tr>
+        <td class="text-muted small">{{ p.id }}</td>
+        <td class="fw-semibold">{{ p.name }}</td>
+        <td class="text-muted small">{{ p.phone or '—' }}</td>
+        <td class="text-muted small">{{ p.email or '—' }}</td>
+        <td class="text-center">
+          {% if p.fargo_rating %}
+            <span class="fargo-badge" style="font-size:0.75rem">{{ p.fargo_rating }}</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="text-center">
+          {% if p.tournament_wins %}<span class="badge bg-warning text-dark">{{ p.tournament_wins }}</span>{% else %}—{% endif %}
+        </td>
+        <td class="text-center">{{ p.match_wins }}</td>
+        <td class="text-center">{{ p.tournaments_entered }}</td>
+        <td class="text-end">
+          <a href="{{ url_for('edit_player_profile', pid=p.id) }}"
+             class="btn btn-xs btn-outline-secondary">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <form method="post" action="{{ url_for('delete_player_profile', pid=p.id) }}"
+                class="d-inline" onsubmit="return confirm('Remove {{ p.name }}?')">
+            <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="9" class="text-muted text-center">No players yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

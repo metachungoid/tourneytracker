@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}Rankings — TourneyTracker{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-bar-chart-fill text-warning me-2"></i>Player Rankings</h2>
+
+{% if players %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th class="text-center" style="width:60px">Rank</th>
+        <th>Player</th>
+        <th class="text-center">Titles</th>
+        <th class="text-center">Match Wins</th>
+        <th class="text-center">Tournaments</th>
+        <th class="text-center">Win Rate</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in players %}
+      {% set win_rate = ((p.match_wins / (p.tournaments_entered * 2)) * 100)|round(0)|int if p.tournaments_entered > 0 else 0 %}
+      <tr class="{% if loop.index == 1 %}table-warning{% elif loop.index == 2 %}table-secondary{% elif loop.index == 3 %}rank-bronze{% endif %}">
+        <td class="text-center fw-bold fs-5">
+          {% if loop.index == 1 %}
+            <i class="bi bi-trophy-fill text-warning"></i>
+          {% elif loop.index == 2 %}
+            <i class="bi bi-trophy-fill text-secondary"></i>
+          {% elif loop.index == 3 %}
+            <i class="bi bi-trophy-fill text-bronze"></i>
+          {% else %}
+            {{ loop.index }}
+          {% endif %}
+        </td>
+        <td>
+          <div class="fw-semibold">{{ p.name }}</div>
+          {% if p.email %}<div class="small text-muted">{{ p.email }}</div>{% endif %}
+        </td>
+        <td class="text-center">
+          {% if p.tournament_wins > 0 %}
+            <span class="badge bg-warning text-dark fs-6">{{ p.tournament_wins }}</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td class="text-center fw-semibold">{{ p.match_wins }}</td>
+        <td class="text-center text-muted">{{ p.tournaments_entered }}</td>
+        <td class="text-center">
+          {% if p.tournaments_entered > 0 %}
+            <div class="progress" style="height:8px; min-width:80px">
+              <div class="progress-bar bg-success" style="width:{{ [win_rate, 100]|min }}%"></div>
+            </div>
+            <small class="text-muted">{{ [win_rate, 100]|min }}%</small>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-bar-chart display-1"></i>
+  <p class="mt-3 fs-5">No players registered yet.</p>
+  {% if current_user.is_authenticated %}
+    <a href="{{ url_for('add_player_profile') }}" class="btn btn-warning">Add Players</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

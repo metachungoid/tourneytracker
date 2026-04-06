@@ -1,0 +1,588 @@
+/* ═══════════════════════════════════════════════════════════════
+   TourneyTracker — Design System
+   Palette:
+     Page bg:      #0e1628  (deep navy)
+     Surface:      #192338  (card bg)
+     Surface-2:    #1e2d47  (card header, raised elements)
+     Surface-3:    #243558  (form inputs, slightly lighter)
+     Border:       #2e4170  (visible dividers)
+     Text-primary: #f0f2f6  (near-white, easy read)
+     Text-body:    #d4dced  (default body text)
+     Text-muted:   #8ba5c8  (readable on all surfaces)
+     Accent-gold:  #ffc107
+     Accent-green: #3ddc84
+     Accent-red:   #f06070
+     Accent-cyan:  #5bc8f5
+════════════════════════════════════════════════════════════════ */
+
+/* ─── Base ───────────────────────────────────────────────────── */
+
+body {
+  background-color: #0e1628;
+  color: #d4dced;
+  min-height: 100vh;
+  font-size: 0.95rem;
+}
+
+/* Override Bootstrap muted everywhere */
+.text-muted {
+  color: #8ba5c8 !important;
+}
+
+small, .small {
+  color: inherit;
+}
+
+/* ─── Navbar ─────────────────────────────────────────────────── */
+
+.navbar {
+  background-color: #090f1d !important;
+  border-bottom: 1px solid #2e4170;
+}
+
+.navbar-brand {
+  color: #f0f2f6 !important;
+  font-size: 1.1rem;
+}
+
+.nav-link {
+  color: #c0cfea !important;
+}
+
+.nav-link:hover,
+.nav-link:focus {
+  color: #ffc107 !important;
+}
+
+.navbar-toggler {
+  border-color: #2e4170;
+}
+
+/* ─── Cards & surfaces ───────────────────────────────────────── */
+
+.card {
+  background-color: #192338;
+  border-color: #2e4170;
+  color: #d4dced;
+}
+
+.card-header {
+  background-color: #1e2d47;
+  border-color: #2e4170;
+  color: #f0f2f6;
+  font-size: 0.9rem;
+}
+
+.card-footer {
+  background-color: #141f35;
+  border-color: #2e4170;
+  color: #8ba5c8;
+}
+
+.card-body {
+  color: #d4dced;
+}
+
+.card-title {
+  color: #f0f2f6;
+}
+
+.list-group-item {
+  background-color: #192338;
+  border-color: #2e4170;
+  color: #d4dced;
+}
+
+.list-group-item + .list-group-item {
+  border-top-color: #2e4170;
+}
+
+/* ─── Forms ──────────────────────────────────────────────────── */
+
+.form-control,
+.form-select,
+.input-group-text {
+  background-color: #243558;
+  border-color: #2e4170;
+  color: #f0f2f6;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: #243558;
+  border-color: #ffc107;
+  color: #ffffff;
+  box-shadow: 0 0 0 0.2rem rgba(255, 193, 7, 0.25);
+}
+
+.form-control::placeholder {
+  color: #6a85aa;
+}
+
+.form-select option {
+  background-color: #243558;
+  color: #f0f2f6;
+}
+
+.form-label {
+  color: #c8d8ee;
+  font-size: 0.88rem;
+}
+
+.form-text {
+  color: #8ba5c8 !important;
+  font-size: 0.8rem;
+}
+
+.form-check-label {
+  color: #d4dced;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────── */
+
+.table {
+  color: #d4dced;
+  --bs-table-bg: transparent;
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+  --bs-table-striped-bg: rgba(255,255,255,0.03);
+}
+
+.table thead th {
+  border-color: #2e4170;
+  color: #a0bcd8;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  background-color: #141f35;
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.table tbody tr {
+  border-color: #2e4170;
+}
+
+.table tbody td {
+  color: #d4dced;
+  vertical-align: middle;
+}
+
+.table-warning {
+  --bs-table-bg: rgba(255, 193, 7, 0.12);
+  color: #ffe066 !important;
+}
+
+.table-secondary {
+  --bs-table-bg: rgba(108, 117, 125, 0.15);
+  color: #c8d0da !important;
+}
+
+.rank-bronze {
+  background-color: rgba(205, 127, 50, 0.12);
+  color: #e09a4a !important;
+}
+
+.text-bronze {
+  color: #e09a4a !important;
+}
+
+/* ─── Alerts ─────────────────────────────────────────────────── */
+
+.alert {
+  font-size: 0.9rem;
+}
+
+.alert-info {
+  background-color: rgba(91, 200, 245, 0.12);
+  border-color: rgba(91, 200, 245, 0.35);
+  color: #8dd8f8;
+}
+
+.alert-info strong {
+  color: #b8eaff;
+}
+
+.alert-warning {
+  background-color: rgba(255, 193, 7, 0.13);
+  border-color: rgba(255, 193, 7, 0.4);
+  color: #ffd84d;
+}
+
+.alert-warning strong {
+  color: #ffe680;
+}
+
+.alert-success {
+  background-color: rgba(61, 220, 132, 0.12);
+  border-color: rgba(61, 220, 132, 0.35);
+  color: #5ae8a0;
+}
+
+.alert-danger {
+  background-color: rgba(240, 96, 112, 0.12);
+  border-color: rgba(240, 96, 112, 0.35);
+  color: #f5909e;
+}
+
+/* Alert close button */
+.alert .btn-close {
+  filter: invert(0.7) brightness(1.5);
+}
+
+/* ─── Badges ─────────────────────────────────────────────────── */
+
+.badge.bg-secondary {
+  background-color: #2e4170 !important;
+  color: #c0cfea !important;
+}
+
+/* ─── Buttons — outline variants on dark ────────────────────── */
+
+.btn-outline-secondary {
+  color: #a0bcd8;
+  border-color: #3a5080;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #243558;
+  border-color: #4a60a0;
+  color: #f0f2f6;
+}
+
+.btn-outline-danger {
+  color: #f5909e;
+  border-color: #c84050;
+}
+
+.btn-outline-danger:hover {
+  background-color: rgba(240, 96, 112, 0.18);
+  color: #ffb0bb;
+}
+
+.btn-outline-warning {
+  color: #ffc107;
+  border-color: #ffc107;
+}
+
+.btn-outline-warning:hover {
+  background-color: rgba(255, 193, 7, 0.15);
+  color: #ffe066;
+}
+
+.btn-outline-success {
+  color: #3ddc84;
+  border-color: #2ab868;
+}
+
+.btn-outline-success:hover {
+  background-color: rgba(61, 220, 132, 0.15);
+  color: #70eea8;
+}
+
+.btn-outline-info {
+  color: #5bc8f5;
+  border-color: #3aacdf;
+}
+
+.btn-outline-info:hover {
+  background-color: rgba(91, 200, 245, 0.15);
+  color: #90deff;
+}
+
+.btn-outline-primary {
+  color: #6a9be8;
+  border-color: #4a78c8;
+}
+
+.btn-outline-primary:hover {
+  background-color: rgba(106, 155, 232, 0.15);
+  color: #a0c0ff;
+}
+
+/* ─── Bracket layout ─────────────────────────────────────────── */
+
+.bracket-wrapper {
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.bracket {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  min-width: max-content;
+  padding: 1rem 0.5rem;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 220px;
+}
+
+.round-label {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ffd84d;
+  margin-bottom: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: #1e2d47;
+  border: 1px solid #2e4170;
+  border-radius: 4px;
+}
+
+.match-card {
+  background: #192338;
+  border: 1px solid #2e4170;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s;
+}
+
+.match-card:hover {
+  border-color: #ffc107;
+}
+
+.match-card.match-done {
+  border-color: #2ab868;
+}
+
+.match-slot {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  transition: background 0.15s;
+}
+
+.match-slot:hover {
+  background: #1e2d47;
+}
+
+.player-name {
+  flex: 1;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e8edf6;
+}
+
+.slot-winner {
+  background: rgba(42, 184, 104, 0.18) !important;
+  font-weight: 700;
+  color: #5ae8a0 !important;
+}
+
+.slot-winner .player-name {
+  color: #7cf0b8 !important;
+}
+
+.slot-loser {
+  opacity: 0.55;
+}
+
+.slot-loser .player-name {
+  text-decoration: line-through;
+  color: #6a85aa;
+}
+
+.match-divider {
+  height: 1px;
+  background: #2e4170;
+}
+
+.btn-xs {
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  border-radius: 4px;
+}
+
+/* ─── Losers bracket ─────────────────────────────────────────── */
+
+.bracket-section-title {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 0.5rem;
+}
+
+.lb-label {
+  background: rgba(240, 96, 112, 0.2) !important;
+  color: #f5909e !important;
+  border: 1px solid rgba(240, 96, 112, 0.4);
+}
+
+.gf-label {
+  background: rgba(255, 193, 7, 0.15) !important;
+  color: #ffd84d !important;
+  border: 1px solid rgba(255, 193, 7, 0.5);
+}
+
+/* ─── Score badges (race-to) ─────────────────────────────────── */
+
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e2d47;
+  color: #c8d8ee;
+  font-weight: 800;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  border: 1px solid #2e4170;
+}
+
+.score-badge.score-win {
+  background: #1a5c38;
+  border-color: #2ab868;
+  color: #5ae8a0;
+}
+
+.score-badge.score-lose {
+  background: #1e1e2e;
+  border-color: #3a3a50;
+  color: #7080a0;
+}
+
+/* ─── Live badge ─────────────────────────────────────────────── */
+
+.live-badge {
+  animation: pulse-live 2s infinite;
+  font-size: 0.7rem !important;
+}
+
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* ─── Format picker cards (new tournament form) ──────────────── */
+
+.format-card {
+  border: 2px solid #2e4170;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  margin: 0;
+  background: #192338;
+}
+
+.format-card:has(.form-check-input:checked) {
+  border-color: #ffc107;
+  background: rgba(255, 193, 7, 0.08);
+}
+
+.format-card .form-check-input {
+  margin-right: 0.5rem;
+}
+
+.format-card label {
+  cursor: pointer;
+  margin: 0;
+  font-weight: 600;
+  color: #d4dced;
+}
+
+.format-card .small {
+  color: #8ba5c8 !important;
+}
+
+/* ─── Prize split summary bar ────────────────────────────────── */
+
+#splitSummary {
+  background: #1e2d47 !important;
+  border: 1px solid #2e4170;
+  border-radius: 6px;
+  color: #d4dced;
+}
+
+/* ─── Fargo rating badge ─────────────────────────────────────── */
+
+.fargo-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #5a2d8a;
+  color: #e0c8ff;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  margin-left: 0.25rem;
+  vertical-align: middle;
+  border: 1px solid #7a4ab0;
+}
+
+.bg-purple {
+  background-color: #6f42c1 !important;
+  color: #e8d8ff !important;
+}
+
+/* ─── Change-winner bar on match cards ───────────────────────── */
+
+.match-change-bar {
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 193, 7, 0.05);
+  border-top: 1px solid rgba(255, 193, 7, 0.15);
+}
+
+/* ─── Misc helpers ───────────────────────────────────────────── */
+
+/* Ensure headings are bright */
+h1, h2, h3, h4, h5, h6 {
+  color: #f0f2f6;
+}
+
+/* fs-* utility text in dark cards */
+.fs-2, .fs-3, .fs-4, .fs-5 {
+  color: inherit;
+}
+
+/* Strong tags in alerts should be bright */
+.alert strong, .alert b {
+  color: inherit;
+  filter: brightness(1.2);
+}
+
+/* Input group text ($ prefix etc) */
+.input-group-text {
+  color: #a0bcd8;
+}
+
+/* Form switch */
+.form-check-input {
+  background-color: #243558;
+  border-color: #3a5080;
+}
+
+.form-check-input:checked {
+  background-color: #ffc107;
+  border-color: #ffc107;
+}
+
+/* Opacity text helper */
+.opacity-75 {
+  color: #8ba5c8 !important;
+  opacity: 1 !important;
+}
+
+/* ─── Login page ─────────────────────────────────────────────── */
+
+.card .card-body p,
+.card .card-body li {
+  color: #d4dced;
+}

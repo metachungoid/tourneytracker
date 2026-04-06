@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Player Registry — TourneyTracker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h2 class="mb-0"><i class="bi bi-people-fill text-warning me-2"></i>Player Registry</h2>
+  <a href="{{ url_for('add_player_profile') }}" class="btn btn-warning">
+    <i class="bi bi-person-plus me-1"></i>Add Player
+  </a>
+</div>
+
+{% if players %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Phone</th>
+        <th>Email</th>
+        <th class="text-center">Fargo</th>
+        <th class="text-center">Entered</th>
+        <th class="text-center">Match Wins</th>
+        <th class="text-center">Titles</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in players %}
+      <tr>
+        <td class="text-muted">{{ loop.index }}</td>
+        <td class="fw-semibold">
+          <i class="bi bi-person-circle me-2 text-muted"></i>{{ p.name }}
+        </td>
+        <td class="text-muted">{{ p.phone or '—' }}</td>
+        <td class="text-muted">{{ p.email or '—' }}</td>
+        <td class="text-center">
+          {% if p.fargo_rating %}<span class="fargo-badge" style="font-size:0.75rem">{{ p.fargo_rating }}</span>{% else %}—{% endif %}
+        </td>
+        <td class="text-center">{{ p.tournaments_entered }}</td>
+        <td class="text-center">{{ p.match_wins }}</td>
+        <td class="text-center">
+          {% if p.tournament_wins > 0 %}
+            <span class="badge bg-warning text-dark">
+              <i class="bi bi-trophy-fill me-1"></i>{{ p.tournament_wins }}
+            </span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="text-end">
+          <a href="{{ url_for('edit_player_profile', pid=p.id) }}"
+             class="btn btn-sm btn-outline-secondary me-1">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <form method="post" action="{{ url_for('delete_player_profile', pid=p.id) }}"
+                class="d-inline"
+                onsubmit="return confirm('Remove {{ p.name }} from the registry?')">
+            <button class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="text-center py-5 text-muted">
+  <i class="bi bi-people display-1"></i>
+  <p class="mt-3 fs-5">No players yet. <a href="{{ url_for('add_player_profile') }}">Add your first player.</a></p>
+</div>
+{% endif %}
+{% endblock %}
