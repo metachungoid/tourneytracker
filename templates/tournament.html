@@ -13,7 +13,7 @@
 
 <!-- Stats -->
 <div class="row g-3 mb-4">
-  <div class="col-sm-3">
+  <div class="col">
     <div class="card text-center border-0 bg-dark text-white">
       <div class="card-body py-3">
         <div class="fs-3 fw-bold">{{ t.num_players }}</div>
@@ -21,7 +21,7 @@
       </div>
     </div>
   </div>
-  <div class="col-sm-3">
+  <div class="col">
     <div class="card text-center border-0 bg-dark text-white">
       <div class="card-body py-3">
         <div class="fs-3 fw-bold">${{ t.buyin }}</div>
@@ -30,16 +30,24 @@
     </div>
   </div>
   {% if t.num_players > 0 %}
-  <div class="col-sm-3">
-    <div class="card text-center border-0 bg-success text-white">
+  <div class="col">
+    <div class="card text-center border-0 bg-dark text-white">
       <div class="card-body py-3">
-        <div class="fs-3 fw-bold">${{ t.prize_pool }}</div>
-        <div class="small">Est. Prize Pool</div>
+        <div class="fs-3 fw-bold">${{ t.total_games }}</div>
+        <div class="small text-muted">Est. Table Cost</div>
       </div>
     </div>
   </div>
-  <div class="col-sm-3">
-    <div class="card text-center border-0 bg-warning text-dark">
+  <div class="col">
+    <div class="card text-center border-0 bg-success text-white">
+      <div class="card-body py-3">
+        <div class="fs-3 fw-bold">${{ t.gross_pool }}</div>
+        <div class="small">minus est. table costs</div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card text-center border-0 bg-danger text-white">
       <div class="card-body py-3">
         {% for p in t.prize_payouts %}
         <div class="{% if loop.first %}fs-6 fw-bold{% else %}small{% endif %}">

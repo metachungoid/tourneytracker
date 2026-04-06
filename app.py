@@ -459,10 +459,18 @@ def _generate_single_bracket(tournament):
             ) else None
             m.player1_id = p1.id if p1 else None
             m.player2_id = p2.id if p2 else None
-            if p1 and not p2:
-                _set_winner(m, p1)
-            elif p2 and not p1:
-                _set_winner(m, p2)
+            # Only auto-advance if both feeder matches are resolved
+            # (have a winner or have no players at all). Otherwise the
+            # empty slot belongs to a real match that hasn't been played.
+            f1 = prev[i]
+            f2 = prev[i + 1] if i + 1 < len(prev) else None
+            f1_done = f1.winner_id is not None or (f1.player1_id is None and f1.player2_id is None)
+            f2_done = f2 is None or f2.winner_id is not None or (f2.player1_id is None and f2.player2_id is None)
+            if f1_done and f2_done:
+                if p1 and not p2:
+                    _set_winner(m, p1)
+                elif p2 and not p1:
+                    _set_winner(m, p2)
             curr.append(m)
         prev = curr
 
@@ -517,10 +525,15 @@ def _generate_double_bracket(tournament):
             ) else None
             m.player1_id = p1.id if p1 else None
             m.player2_id = p2.id if p2 else None
-            if p1 and not p2:
-                _set_winner(m, p1)
-            elif p2 and not p1:
-                _set_winner(m, p2)
+            f1 = prev[i]
+            f2 = prev[i + 1] if i + 1 < len(prev) else None
+            f1_done = f1.winner_id is not None or (f1.player1_id is None and f1.player2_id is None)
+            f2_done = f2 is None or f2.winner_id is not None or (f2.player1_id is None and f2.player2_id is None)
+            if f1_done and f2_done:
+                if p1 and not p2:
+                    _set_winner(m, p1)
+                elif p2 and not p1:
+                    _set_winner(m, p2)
             curr.append(m)
         wr_rounds[r] = curr
         prev = curr
