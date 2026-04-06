@@ -1,0 +1,9 @@
+services:
+  tourneytracker:
+    build: .
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./instance:/app/instance
+    environment:
+      - SECRET_KEY=dev-secret-key
