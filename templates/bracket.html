@@ -11,22 +11,22 @@
     {% if match.winner_id and match.winner_id == match.player1_id %}slot-winner
     {% elif match.winner_id and match.winner_id != match.player1_id %}slot-loser{% endif %}">
     {% if p1 %}
-      {% if t.format == 'race3' and not match.winner_id %}
+      {% if t.race_to > 1 and not match.winner_id %}
         <span class="score-badge">{{ match.score1 or 0 }}</span>
       {% elif match.winner_id and match.winner_id == match.player1_id %}
-        {% if t.format == 'race3' %}
+        {% if t.race_to > 1 %}
           <span class="score-badge score-win">{{ match.score1 or 0 }}</span>
         {% else %}
           <i class="bi bi-check-circle-fill text-success me-1 small"></i>
         {% endif %}
       {% elif match.winner_id %}
-        {% if t.format == 'race3' %}
+        {% if t.race_to > 1 %}
           <span class="score-badge score-lose">{{ match.score1 or 0 }}</span>
         {% endif %}
       {% endif %}
       <span class="player-name">{{ p1.name }}{% if t.fargo_rated and p1.fargo_rating %} <span class="fargo-badge">{{ p1.fargo_rating }}</span>{% endif %}</span>
       {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
-        {% if t.format == 'race3' %}
+        {% if t.race_to > 1 %}
           <form method="post"
                 action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=1) }}"
                 class="d-inline ms-auto">
@@ -52,22 +52,22 @@
     {% if match.winner_id and match.winner_id == match.player2_id %}slot-winner
     {% elif match.winner_id and match.winner_id != match.player2_id %}slot-loser{% endif %}">
     {% if p2 %}
-      {% if t.format == 'race3' and not match.winner_id %}
+      {% if t.race_to > 1 and not match.winner_id %}
         <span class="score-badge">{{ match.score2 or 0 }}</span>
       {% elif match.winner_id and match.winner_id == match.player2_id %}
-        {% if t.format == 'race3' %}
+        {% if t.race_to > 1 %}
           <span class="score-badge score-win">{{ match.score2 or 0 }}</span>
         {% else %}
           <i class="bi bi-check-circle-fill text-success me-1 small"></i>
         {% endif %}
       {% elif match.winner_id %}
-        {% if t.format == 'race3' %}
+        {% if t.race_to > 1 %}
           <span class="score-badge score-lose">{{ match.score2 or 0 }}</span>
         {% endif %}
       {% endif %}
       <span class="player-name">{{ p2.name }}{% if t.fargo_rated and p2.fargo_rating %} <span class="fargo-badge">{{ p2.fargo_rating }}</span>{% endif %}</span>
       {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
-        {% if t.format == 'race3' %}
+        {% if t.race_to > 1 %}
           <form method="post"
                 action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=2) }}"
                 class="d-inline ms-auto">
@@ -142,8 +142,15 @@
   <div class="col-6 col-sm">
     <div class="card text-center border-0 bg-dark text-white">
       <div class="card-body py-2">
-        <div class="fs-4 fw-bold">${{ t.total_games }}</div>
-        <div class="small text-muted">Est. Table Cost</div>
+        {% if t.status == 'complete' %}
+          <div class="fs-4 fw-bold">{{ t.actual_table_cost|money }}</div>
+          <div class="small text-muted">Table Cost</div>
+          <div class="small text-info">{{ t.actual_games_played }} games played</div>
+        {% else %}
+          <div class="fs-4 fw-bold">{{ t.est_table_cost|money }}</div>
+          <div class="small text-muted">Est. Table Cost</div>
+          <div class="small text-info">{{ t.actual_table_cost|money }} actual so far</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -151,7 +158,11 @@
     <div class="card text-center border-0 bg-success text-white">
       <div class="card-body py-2">
         <div class="fs-4 fw-bold">${{ t.gross_pool }}</div>
-        <div class="small">minus est. table costs</div>
+        {% if t.status == 'complete' %}
+          <div class="small">minus {{ t.actual_table_cost|money }} table costs</div>
+        {% else %}
+          <div class="small">minus est. table costs</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -163,14 +174,18 @@
           {{ p.label }}: ${{ p.amount }}
         </div>
         {% endfor %}
+        {% if t.status != 'complete' %}
+          <div class="small mt-1 opacity-75">based on est. table costs</div>
+        {% endif %}
       </div>
     </div>
   </div>
 </div>
 
-{% if t.format == 'race3' %}
+{% if t.race_to > 1 %}
 <div class="alert alert-info py-2 mb-3">
-  <i class="bi bi-bullseye me-1"></i><strong>Race to 3</strong> — first player to win 3 games takes the match.
+  <i class="bi bi-bullseye me-1"></i><strong>{{ t.format_label }}</strong> — first player to win {{ t.race_to }} game{{ 's' if t.race_to > 1 else '' }} takes the match.
+  <span class="text-muted small ms-2">(~{{ t.est_games_per_match }} games/match avg, {{ t.table_fee|money }}/game table fee)</span>
 </div>
 {% endif %}
 
@@ -240,7 +255,9 @@
         {% else %}Round {{ r }}{% endif %}
       </div>
       {% for match in wr_rounds[r] %}
-        {{ match_card(match, t, true) }}
+        {% if match.player1 or match.player2 or match.winner_id %}
+          {{ match_card(match, t, true) }}
+        {% endif %}
       {% endfor %}
     </div>
     {% endfor %}

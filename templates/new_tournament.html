@@ -26,41 +26,33 @@
             <label class="form-label fw-semibold">Format</label>
             <div class="d-flex gap-2 flex-wrap">
               <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="format" id="fmt-single"
-                       value="single" checked>
-                <label class="form-check-label" for="fmt-single">
-                  <i class="bi bi-diagram-3 me-1"></i>Single Elim
-                  <div class="small text-muted">One loss = out</div>
+                <input class="form-check-input" type="radio" name="format" id="fmt-bestof"
+                       value="bestof" checked>
+                <label class="form-check-label" for="fmt-bestof">
+                  <i class="bi bi-trophy me-1"></i>Best of X
+                  <div class="small text-muted">First to win majority (e.g. best of 3 = first to 2)</div>
                 </label>
               </div>
               <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="format" id="fmt-double"
-                       value="double">
-                <label class="form-check-label" for="fmt-double">
-                  <i class="bi bi-diagram-3-fill me-1"></i>Double Elim
-                  <div class="small text-muted">Two losses = out (min 4 players)</div>
-                </label>
-              </div>
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="format" id="fmt-race3"
-                       value="race3">
-                <label class="form-check-label" for="fmt-race3">
-                  <i class="bi bi-bullseye me-1"></i>Race to 3
-                  <div class="small text-muted">First to 3 wins per match</div>
+                <input class="form-check-input" type="radio" name="format" id="fmt-raceto"
+                       value="raceto">
+                <label class="form-check-label" for="fmt-raceto">
+                  <i class="bi bi-bullseye me-1"></i>Race to X
+                  <div class="small text-muted">First to reach X wins</div>
                 </label>
               </div>
             </div>
           </div>
 
-          <!-- Race To (shown only for race3) -->
-          <div class="mb-3" id="raceToRow" style="display:none">
-            <label class="form-label fw-semibold">Race To</label>
-            <div class="input-group" style="max-width:160px">
-              <input type="number" name="race_to" id="race_to" class="form-control"
-                     min="1" max="20" value="3">
+          <!-- Format value -->
+          <div class="mb-3" id="formatValueRow">
+            <label class="form-label fw-semibold" id="formatValueLabel">Best of</label>
+            <div class="input-group" style="max-width:180px">
+              <input type="number" name="format_value" id="format_value" class="form-control"
+                     min="1" max="99" value="1">
               <span class="input-group-text">games</span>
             </div>
-            <div class="form-text">First player to reach this wins the match.</div>
+            <div class="form-text" id="formatValueHelp">Best of 1 = single game per match.</div>
           </div>
 
           <!-- Fargo Rating -->
@@ -93,7 +85,17 @@
               <input type="number" name="buyin" id="buyin" class="form-control"
                      min="0" step="1" value="10" required>
             </div>
-            <div class="form-text">$1 per game played will be deducted as a table fee.</div>
+          </div>
+
+          <!-- Table Fee -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Table Fee ($ per game)</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" name="table_fee" id="table_fee" class="form-control"
+                     min="0" step="0.01" value="1">
+            </div>
+            <div class="form-text">Deducted from the prize pool for each game played. Set to $0 for open tables.</div>
           </div>
 
           <!-- Prize Split -->
@@ -209,13 +211,30 @@ function updateTotals() {
 
 
 
-// Show/hide Race To row based on format selection
+// Update format value label/help based on selection
+function updateFormatUI() {
+  const fmt = document.querySelector('input[name=format]:checked').value;
+  const val = parseInt(document.getElementById('format_value').value) || 1;
+  const label = document.getElementById('formatValueLabel');
+  const help = document.getElementById('formatValueHelp');
+  if (fmt === 'bestof') {
+    label.textContent = 'Best of';
+    const winsNeeded = Math.ceil(val / 2);
+    help.textContent = val === 1
+      ? 'Best of 1 = single game per match.'
+      : `Best of ${val} = first to ${winsNeeded} wins per match.`;
+  } else {
+    label.textContent = 'Race to';
+    help.textContent = val === 1
+      ? 'Race to 1 = single game per match.'
+      : `Race to ${val} = first to ${val} wins per match.`;
+  }
+}
 document.querySelectorAll('input[name=format]').forEach(r => {
-  r.addEventListener('change', () => {
-    document.getElementById('raceToRow').style.display =
-      r.value === 'race3' ? '' : 'none';
-  });
+  r.addEventListener('change', updateFormatUI);
 });
+document.getElementById('format_value').addEventListener('input', updateFormatUI);
+updateFormatUI();
 
 // Seed defaults on page load: 70 / 30
 addPlace(70);

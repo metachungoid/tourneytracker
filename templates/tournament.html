@@ -33,8 +33,11 @@
   <div class="col">
     <div class="card text-center border-0 bg-dark text-white">
       <div class="card-body py-3">
-        <div class="fs-3 fw-bold">${{ t.total_games }}</div>
+        <div class="fs-3 fw-bold">{{ t.est_table_cost|money }}</div>
         <div class="small text-muted">Est. Table Cost</div>
+        {% if t.status != 'open' %}
+        <div class="small text-info">{{ t.actual_table_cost|money }} actual</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -79,9 +82,9 @@
 <div class="alert alert-info d-flex align-items-start gap-2 mb-4">
   <i class="bi bi-info-circle-fill mt-1"></i>
   <div>
-    {{ t.num_players }} players × ${{ t.buyin }} = <strong>${{ t.prize_pool }}</strong>
+    {{ t.num_players }} players × ${{ t.buyin }} = <strong>${{ t.gross_pool }}</strong>
     &nbsp;({% for p in t.prize_payouts %}{{ p.label }} ${{ p.amount }}{% if not loop.last %} / {% endif %}{% endfor %})
-    <span class="text-muted small ms-1">— table fees deducted after bracket is locked</span>
+    <span class="text-muted small ms-1">— {{ t.table_fee|money }}/game table fee · {{ t.format_label }}{% if t.race_to > 1 %} (~{{ t.est_games_per_match }} games/match avg){% endif %}</span>
   </div>
 </div>
 {% endif %}
