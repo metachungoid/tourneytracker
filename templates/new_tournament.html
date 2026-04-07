@@ -140,22 +140,28 @@
 const ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th'];
 let placeCount = 0;
 
-function addPlace(pct) {
+function addPlace(val, type) {
   placeCount++;
   const idx = placeCount;
   const label = ORDINALS[idx - 1] || `${idx}th`;
-  const defaultPct = pct !== undefined ? pct : '';
+  const defaultVal = val !== undefined ? val : '';
+  const defaultType = type || 'pct';
 
   const row = document.createElement('div');
   row.className = 'split-row d-flex align-items-center gap-2 mb-2';
   row.dataset.idx = idx;
   row.innerHTML = `
     <span class="split-place-label badge bg-secondary" style="min-width:2.8rem">${label}</span>
+    <select name="split_type_${idx}" class="form-select form-select-sm split-type"
+            style="max-width:5rem" onchange="updateTotals()">
+      <option value="pct" ${defaultType === 'pct' ? 'selected' : ''}>%</option>
+      <option value="flat" ${defaultType === 'flat' ? 'selected' : ''}>$</option>
+    </select>
     <div class="input-group input-group-sm flex-fill">
-      <input type="number" name="split_pct_${idx}" class="form-control split-pct"
-             min="1" max="100" value="${defaultPct}" placeholder="%" required
+      <input type="number" name="split_val_${idx}" class="form-control split-val"
+             min="1" step="any" value="${defaultVal}" placeholder="${defaultType === 'flat' ? '$' : '%'}" required
              oninput="updateTotals()">
-      <span class="input-group-text">%</span>
+      <span class="input-group-text split-unit">${defaultType === 'flat' ? '$' : '%'}</span>
     </div>
     <button type="button" class="btn btn-xs btn-outline-danger" onclick="removePlace(this)"
             title="Remove">
@@ -163,6 +169,19 @@ function addPlace(pct) {
     </button>
   `;
   document.getElementById('splitRows').appendChild(row);
+
+  // Update placeholder/unit when type changes
+  const select = row.querySelector('.split-type');
+  const input = row.querySelector('.split-val');
+  const unit = row.querySelector('.split-unit');
+  select.addEventListener('change', () => {
+    const isFl = select.value === 'flat';
+    input.placeholder = isFl ? '$' : '%';
+    unit.textContent = isFl ? '$' : '%';
+    if (!isFl) input.max = 100;
+    else input.removeAttribute('max');
+  });
+
   reindexRows();
   updateTotals();
 }
@@ -180,31 +199,46 @@ function reindexRows() {
     row.dataset.idx = idx;
     const label = ORDINALS[i] || `${idx}th`;
     row.querySelector('.split-place-label').textContent = label;
-    row.querySelector('input[type=number]').name = `split_pct_${idx}`;
+    row.querySelector('.split-type').name = `split_type_${idx}`;
+    row.querySelector('.split-val').name = `split_val_${idx}`;
   });
   placeCount = rows.length;
 }
 
 function updateTotals() {
-  const inputs = document.querySelectorAll('.split-pct');
-  let total = 0;
-  inputs.forEach(inp => { total += parseInt(inp.value) || 0; });
-  document.getElementById('totalPct').textContent = total;
+  const rows = document.querySelectorAll('.split-row');
+  let totalPct = 0;
+  let totalFlat = 0;
+  rows.forEach(row => {
+    const type = row.querySelector('.split-type').value;
+    const val = parseFloat(row.querySelector('.split-val').value) || 0;
+    if (type === 'flat') totalFlat += val;
+    else totalPct += val;
+  });
   const bar = document.getElementById('splitBar');
   const summary = document.getElementById('splitSummary');
   const house = document.getElementById('houseKeep');
-  if (total > 100) {
+  const totalEl = document.getElementById('totalPct');
+
+  let label = `${totalPct}%`;
+  if (totalFlat > 0) label += ` + $${totalFlat} flat`;
+  totalEl.textContent = label;
+
+  if (totalPct > 100) {
     bar.style.width = '100%';
     bar.style.background = '#dc3545';
     summary.style.borderLeft = '3px solid #dc3545';
-    house.textContent = `⚠ Exceeds 100% by ${total - 100}%`;
+    house.textContent = `⚠ Percentages exceed 100% by ${totalPct - 100}%`;
     house.style.color = '#dc3545';
   } else {
-    bar.style.width = total + '%';
+    bar.style.width = totalPct + '%';
     bar.style.background = '#ffc107';
     summary.style.borderLeft = '3px solid #ffc107';
-    const rem = 100 - total;
-    house.textContent = rem > 0 ? `${rem}% stays with house` : '';
+    const rem = 100 - totalPct;
+    let info = '';
+    if (rem > 0) info = `${rem}% stays with house`;
+    if (totalFlat > 0) info += (info ? ' · ' : '') + `$${totalFlat} paid as flat`;
+    house.textContent = info;
     house.style.color = '#888';
   }
 }

@@ -255,9 +255,7 @@
         {% else %}Round {{ r }}{% endif %}
       </div>
       {% for match in wr_rounds[r] %}
-        {% if match.player1 or match.player2 or match.winner_id %}
-          {{ match_card(match, t, true) }}
-        {% endif %}
+        {{ match_card(match, t, true) }}
       {% endfor %}
     </div>
     {% endfor %}

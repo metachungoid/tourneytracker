@@ -158,9 +158,23 @@ class Tournament(db.Model):
 
     @property
     def prize_payouts(self):
-        """Return list of dicts: [{place, label, pct, amount}]"""
+        """Return list of dicts: [{place, label, pct, amount}].
+        Flat-dollar places are paid first; percentage places split the remainder."""
         pool = self.prize_pool
-        return [{**s, 'amount': round(pool * s['pct'] / 100)} for s in self.splits]
+        splits = self.splits
+
+        # Deduct flat amounts first
+        flat_total = sum(s.get('flat', 0) for s in splits if s.get('type') == 'flat')
+        remaining = max(pool - flat_total, 0)
+
+        payouts = []
+        for s in splits:
+            if s.get('type') == 'flat':
+                amt = s.get('flat', 0)
+            else:
+                amt = round(remaining * s.get('pct', 0) / 100)
+            payouts.append({**s, 'amount': amt})
+        return payouts
 
     @property
     def split_1st(self):
@@ -182,8 +196,21 @@ class Tournament(db.Model):
 
     @property
     def rounds(self):
+        """Number of rounds in the bracket (variable-size rounds, not power-of-2)."""
+        if self.status in ('bracket', 'complete'):
+            r = db.session.query(db.func.max(Match.round_num)).filter_by(
+                tournament_id=self.id
+            ).scalar()
+            return r or 0
         n = self.num_players
-        return math.ceil(math.log2(n)) if n >= 2 else 0
+        if n < 2:
+            return 0
+        count = 0
+        remaining = n
+        while remaining > 1:
+            count += 1
+            remaining = (remaining + 1) // 2
+        return count
 
     @property
     def is_upcoming(self):
@@ -279,198 +306,161 @@ def _seeded_bracket_order(n):
 
 
 def _get_slots(tournament):
-    """Return ordered Participant/None list for bracket slots.
+    """Return ordered list of Participants for the bracket.
 
-    Bye and empty matches are interleaved with real matches so that each
-    pair of consecutive R1 matches (which feed into the same R2 match)
-    contains at most one non-real match.  This guarantees no player ever
-    receives consecutive byes.
+    Rankings seeding sorts by past performance (championships then wins).
+    Random seeding shuffles.  No None padding — the bracket generator
+    handles byes based on odd player counts.
     """
     parts = list(tournament.participants)
-    n = len(parts)
-    num_rounds = math.ceil(math.log2(n)) if n >= 2 else 1
-    bracket_size = 2 ** num_rounds
 
     if (tournament.seeding or 'random') == 'rankings':
-        ranked = sorted(parts, key=lambda p: (
-            -Tournament.query.filter(
-                Tournament.champion_id == p.profile_id,
-                Tournament.id != tournament.id
-            ).count(),
-            -Match.query.filter(
-                Match.winner_profile_id == p.profile_id,
-                Match.tournament_id != tournament.id
-            ).count()
+        champ_counts = dict(db.session.query(
+            Tournament.champion_id, db.func.count()
+        ).filter(
+            Tournament.id != tournament.id,
+            Tournament.champion_id.isnot(None),
+        ).group_by(Tournament.champion_id).all())
+        win_counts = dict(db.session.query(
+            Match.winner_profile_id, db.func.count()
+        ).filter(
+            Match.tournament_id != tournament.id,
+            Match.winner_profile_id.isnot(None),
+        ).group_by(Match.winner_profile_id).all())
+        return sorted(parts, key=lambda p: (
+            -champ_counts.get(p.profile_id, 0),
+            -win_counts.get(p.profile_id, 0),
         ))
-        seed_order = _seeded_bracket_order(bracket_size)
-        seeds_with_byes = ranked + [None] * (bracket_size - len(ranked))
-        slots = [None] * bracket_size
-        for i, seed_num in enumerate(seed_order):
-            idx = seed_num - 1
-            slots[i] = seeds_with_byes[idx] if idx < len(seeds_with_byes) else None
-        return slots
 
-    # ── Random seeding with fair bye distribution ───────────────────────
-    random.shuffle(parts)
-
-    if bracket_size == n:
-        return parts  # no byes needed
-
-    # Build R1 match pairs: real matches, then bye (if odd), then empties
-    pi = 0
-    real_pairs = []
-    while pi + 1 < n:
-        if n % 2 == 1 and pi == n - 1:
-            break  # last player is the odd one out
-        real_pairs.append((parts[pi], parts[pi + 1]))
-        pi += 2
-
-    bye_pair = (parts[pi], None) if pi < n else None
-    empty_count = bracket_size // 2 - len(real_pairs) - (1 if bye_pair else 0)
-
-    # Interleave: place non-real matches at odd indices so each R2 group
-    # (M0+M1, M2+M3, …) has at most one non-real match.
-    non_real = ([bye_pair] if bye_pair else []) + [(None, None)] * empty_count
-    num_r1 = bracket_size // 2
-    ordered = [None] * num_r1
-
-    for i, nr in enumerate(non_real):
-        ordered[2 * i + 1] = nr
-
-    ri = 0
-    for i in range(num_r1):
-        if ordered[i] is None:
-            ordered[i] = real_pairs[ri]
-            ri += 1
-
-    # Flatten pairs into slot list
-    slots = []
-    for p1, p2 in ordered:
-        slots.append(p1)
-        slots.append(p2)
-    return slots
+    ordered = parts[:]
+    random.shuffle(ordered)
+    return ordered
 
 
-def _maybe_auto_advance(match, tournament):
-    """For LB/GF matches: if one slot is filled and the other has no pending feeders,
-    auto-advance the filled player."""
-    if match.winner_id or match.bracket == 'W':
-        return
-    p1 = match.player1_id
-    p2 = match.player2_id
-    if (p1 and p2) or (not p1 and not p2):
-        return
-
-    empty_slot = 2 if p1 else 1
-    filled_id = p1 if p1 else p2
-
-    loser_pending = Match.query.filter(
-        Match.loser_next_match_id == match.id,
-        Match.loser_slot == empty_slot,
-        Match.winner_id == None   # noqa: E711
-    ).count()
-    winner_pending = Match.query.filter(
-        Match.next_match_id == match.id,
-        Match.next_slot == empty_slot,
-        Match.winner_id == None   # noqa: E711
-    ).count()
-
-    if loser_pending + winner_pending == 0:
-        filled_part = db.session.get(Participant, filled_id)
-        if filled_part:
-            _set_winner(match, filled_part)
-            advance_winner(match, tournament)
+def _finalize_tournament(tournament, winner_id, loser_id):
+    """Set champion, runner-up, and mark tournament complete."""
+    winner = db.session.get(Participant, winner_id)
+    if winner:
+        tournament.champion_id = winner.profile_id
+    loser = db.session.get(Participant, loser_id) if loser_id else None
+    if loser:
+        tournament.runner_up_id = loser.profile_id
+    tournament.status = 'complete'
 
 
-def _resolve_round_byes(tournament, completed_round_num):
-    """After a round is fully decided, populate the next round with winners
-    and auto-resolve any bye matches there.  Repeats until a round has at
-    least one real (two-player) match that must be played manually.
+def _gate_advance(tournament, completed_round_num):
+    """Round-gating for semi-finals and finals.
 
-    Key rule: NO player is placed into round N+1 until ALL of round N is done.
+    Populates the next round only when ALL matches in the current round
+    are decided.  Auto-resolves any byes in the populated round, then
+    cascades if that round is also fully decided.
     """
-    current_round = completed_round_num
+    round_matches = Match.query.filter_by(
+        tournament_id=tournament.id, bracket='W',
+        round_num=completed_round_num,
+    ).all()
+    for m in round_matches:
+        if (m.player1_id or m.player2_id) and not m.winner_id:
+            return  # round not yet complete
 
-    while True:
-        # Are all matches in this round decided?
-        round_matches = Match.query.filter_by(
-            tournament_id=tournament.id, bracket='W',
-            round_num=current_round,
-        ).all()
-        for m in round_matches:
-            if (m.player1_id or m.player2_id) and not m.winner_id:
-                return  # round not yet complete — stop
+    # Place ALL winners into next round
+    for m in round_matches:
+        if m.winner_id and m.next_match_id:
+            winner_part = db.session.get(Participant, m.winner_id)
+            next_m = db.session.get(Match, m.next_match_id)
+            if next_m and winner_part:
+                if m.next_slot == 1:
+                    next_m.player1_id = winner_part.id
+                elif m.next_slot == 2:
+                    next_m.player2_id = winner_part.id
+    db.session.flush()
 
-        # Round is complete — place ALL winners into next-round slots
-        next_round = current_round + 1
-        for m in round_matches:
-            if m.winner_id and m.next_match_id:
-                winner_part = db.session.get(Participant, m.winner_id)
-                next_m = db.session.get(Match, m.next_match_id)
-                if next_m and winner_part:
-                    if m.next_slot == 1:
-                        next_m.player1_id = winner_part.id
-                    elif m.next_slot == 2:
-                        next_m.player2_id = winner_part.id
-        db.session.flush()
+    # Resolve byes in the populated round
+    next_round = completed_round_num + 1
+    next_matches = Match.query.filter_by(
+        tournament_id=tournament.id, bracket='W',
+        round_num=next_round,
+    ).all()
+    if not next_matches:
+        return
 
-        # Now resolve byes in the next round (matches with only 1 player)
-        next_matches = Match.query.filter_by(
-            tournament_id=tournament.id, bracket='W',
-            round_num=next_round,
-        ).all()
-        if not next_matches:
-            return  # no more rounds
+    for nm in next_matches:
+        if nm.winner_id:
+            continue
+        p1, p2 = nm.player1_id, nm.player2_id
+        if p1 and not p2:
+            _set_winner(nm, db.session.get(Participant, p1))
+        elif p2 and not p1:
+            _set_winner(nm, db.session.get(Participant, p2))
 
-        has_real_match = False
-        for nm in next_matches:
-            if nm.winner_id:
-                continue
-            p1, p2 = nm.player1_id, nm.player2_id
-            if p1 and p2:
-                has_real_match = True
-            elif p1 and not p2:
-                _set_winner(nm, db.session.get(Participant, p1))
-            elif p2 and not p1:
-                _set_winner(nm, db.session.get(Participant, p2))
+    # Check for tournament completion (finals decided)
+    for nm in next_matches:
+        if nm.winner_id and not nm.next_match_id:
+            loser_id = nm.player2_id if nm.winner_id == nm.player1_id else nm.player1_id
+            _finalize_tournament(tournament, nm.winner_id, loser_id)
+            return
 
-        # Check for terminal matches (finals with no next_match_id)
-        for nm in next_matches:
-            if nm.winner_id and not nm.next_match_id:
-                winner_part = db.session.get(Participant, nm.winner_id)
-                if winner_part:
-                    tournament.champion_id = winner_part.profile_id
-                    loser_id = nm.player2_id if nm.winner_id == nm.player1_id else nm.player1_id
-                    loser_part = db.session.get(Participant, loser_id) if loser_id else None
-                    if loser_part:
-                        tournament.runner_up_id = loser_part.profile_id
-                    tournament.status = 'complete'
-                return
-
-        if has_real_match:
-            return  # real matches to play — stop cascading
-
-        # All next-round matches were byes — continue to the round after
-        current_round = next_round
+    # If ALL populated matches are already decided (all byes), cascade
+    has_pending = any(
+        (nm.player1_id or nm.player2_id) and not nm.winner_id
+        for nm in next_matches
+    )
+    if not has_pending:
+        _gate_advance(tournament, next_round)
 
 
 def advance_winner(match, tournament):
-    """After a match winner is set, check if the round is fully complete.
-    If so, populate the next round and resolve any byes there."""
-    # Terminal match (finals — no next match)
+    """Advance the match winner to the next match.
+
+    Early rounds: per-match advancement (immediate, no waiting).
+    Semi-finals and finals (last 2 rounds): round-gated (waits for
+    entire previous round to complete before populating).
+    """
     if not match.next_match_id:
-        winner_part = db.session.get(Participant, match.winner_id) if match.winner_id else None
-        if winner_part and match.bracket != 'L':
-            tournament.champion_id = winner_part.profile_id
+        if match.winner_id:
             loser_id = match.player2_id if match.winner_id == match.player1_id else match.player1_id
-            loser_part = db.session.get(Participant, loser_id) if loser_id else None
-            if loser_part:
-                tournament.runner_up_id = loser_part.profile_id
-            tournament.status = 'complete'
+            _finalize_tournament(tournament, match.winner_id, loser_id)
         return
 
-    # Check if this round is now fully decided → populate next round
-    _resolve_round_byes(tournament, match.round_num)
+    next_m = db.session.get(Match, match.next_match_id)
+    if not next_m:
+        return
+
+    num_rounds = tournament.rounds
+    gated_from = num_rounds - 1 if num_rounds >= 3 else num_rounds + 99
+
+    # Semi-finals and finals: round-gated
+    if next_m.round_num >= gated_from:
+        _gate_advance(tournament, match.round_num)
+        return
+
+    # Per-match advancement for earlier rounds
+    winner_part = db.session.get(Participant, match.winner_id)
+    if match.next_slot == 1:
+        next_m.player1_id = winner_part.id
+    else:
+        next_m.player2_id = winner_part.id
+    db.session.flush()
+
+    # Auto-advance bye (one player, no pending feeders for the empty slot)
+    if next_m.winner_id:
+        return
+    p1, p2 = next_m.player1_id, next_m.player2_id
+    if p1 and p2:
+        return  # real match — wait for it to be played
+    if not p1 and not p2:
+        return
+
+    empty_slot = 2 if p1 else 1
+    pending = Match.query.filter(
+        Match.next_match_id == next_m.id,
+        Match.next_slot == empty_slot,
+        Match.winner_id == None,  # noqa: E711
+    ).count()
+    if pending == 0:
+        filled_part = db.session.get(Participant, p1 or p2)
+        _set_winner(next_m, filled_part)
+        advance_winner(next_m, tournament)
 
 
 # ---------------------------------------------------------------------------
@@ -500,7 +490,7 @@ def _clear_forward(match):
     t.champion_id = None
     t.runner_up_id = None
 
-    # Cascade: remove winner from next WB/LB/GF match
+    # Cascade: remove winner from next match
     if match.next_match_id:
         next_m = db.session.get(Match, match.next_match_id)
         if next_m:
@@ -514,240 +504,135 @@ def _clear_forward(match):
             if removed:
                 _clear_forward(next_m)
 
-    # Cascade: remove loser from LB match (double elim only)
-    if match.loser_next_match_id and loser_part_id:
-        lb_m = db.session.get(Match, match.loser_next_match_id)
-        if lb_m:
-            removed = False
-            if lb_m.player1_id == loser_part_id:
-                lb_m.player1_id = None
-                removed = True
-            elif lb_m.player2_id == loser_part_id:
-                lb_m.player2_id = None
-                removed = True
-            if removed:
-                _clear_forward(lb_m)
-
 
 # ---------------------------------------------------------------------------
 # Bracket generators
 # ---------------------------------------------------------------------------
 
 def _generate_single_bracket(tournament):
-    """Generate a single-elimination bracket.
+    """Generate a single-elimination bracket with minimal byes.
 
-    Players are packed at the top of the bracket so most play in R1.
-    Byes go to the bottom.  No winners are set during generation — byes
-    are only resolved round-by-round as matches are played.
+    At most 1 bye per round (when odd player count).  The bye player is
+    pre-placed into the next round's first match so play can start
+    immediately when that match's opponent is decided.
+
+    Early rounds: per-match advancement (immediate).
+    Semi-finals and finals (last 2 rounds): round-gated — players are
+    NOT pre-seeded; the round populates only when the prior round
+    completes.  Byes in gated rounds become extra matches instead of
+    skip-ahead links.
     """
-    slots = _get_slots(tournament)
-    bracket_size = len(slots)
-    num_rounds = int(math.log2(bracket_size))
+    players = _get_slots(tournament)
+    n = len(players)
+    if n < 2:
+        tournament.status = 'bracket'
+        db.session.commit()
+        return
 
-    # ── Round 1: create all matches (no winners set) ────────────────────
-    round1 = []
-    for i in range(0, bracket_size, 2):
-        p1, p2 = slots[i], slots[i + 1]
-        m = Match(
-            tournament_id=tournament.id, bracket='W',
-            round_num=1, position=i // 2,
-            player1_id=p1.id if p1 else None,
-            player2_id=p2.id if p2 else None,
-            score1=0, score2=0,
-        )
-        db.session.add(m)
-        round1.append(m)
-    db.session.flush()
+    # ── Compute round structure ────────────────────────────────────────
+    # Each round: (num_matches, has_bye)
+    round_info = []
+    remaining = n
+    while remaining > 1:
+        num_matches = remaining // 2
+        has_bye = remaining % 2 == 1
+        round_info.append((num_matches, has_bye))
+        remaining = num_matches + (1 if has_bye else 0)
+    num_rounds = len(round_info)
 
-    # ── Rounds 2+: create empty match structure with links ──────────────
-    prev = round1
-    for r in range(2, num_rounds + 1):
-        curr = []
-        for i in range(0, len(prev), 2):
-            m = Match(
+    # Gated rounds: semi-finals and finals (last 2 rounds, if >= 3 rounds)
+    gated_from = num_rounds - 1 if num_rounds >= 3 else num_rounds + 99
+
+    # ── Adjust byes that would skip into gated rounds ────────────────
+    # A round's bye causes a skip-ahead to round r+2 (1-indexed).
+    # If that target is gated (semi-finals or finals), convert the bye
+    # into an extra match in the SAME round — a bye match with one player
+    # that auto-resolves.  Output count stays the same (m+1 either way).
+    for r_idx in range(num_rounds):
+        if not round_info[r_idx][1]:
+            continue
+        skip_target = r_idx + 2  # 1-indexed round the skip would land in
+        if skip_target >= gated_from:
+            m_count, _ = round_info[r_idx]
+            round_info[r_idx] = (m_count + 1, False)
+
+    # ── Create all matches ─────────────────────────────────────────────
+    all_rounds = []
+    for r_idx, (num_matches, _) in enumerate(round_info):
+        round_matches = []
+        for i in range(num_matches):
+            kwargs = dict(
                 tournament_id=tournament.id, bracket='W',
-                round_num=r, position=i // 2,
+                round_num=r_idx + 1, position=i,
                 score1=0, score2=0,
             )
+            if r_idx == 0:
+                p1_idx = i * 2
+                p2_idx = i * 2 + 1
+                if p1_idx < len(players):
+                    kwargs['player1_id'] = players[p1_idx].id
+                if p2_idx < len(players):
+                    kwargs['player2_id'] = players[p2_idx].id
+            m = Match(**kwargs)
             db.session.add(m)
-            db.session.flush()
-            prev[i].next_match_id = m.id
-            prev[i].next_slot = 1
-            if i + 1 < len(prev):
-                prev[i + 1].next_match_id = m.id
-                prev[i + 1].next_slot = 2
-            curr.append(m)
-        prev = curr
+            round_matches.append(m)
+        all_rounds.append(round_matches)
+    db.session.flush()
 
-    # ── Auto-resolve R1 byes (player vs empty) — but do NOT advance ────
-    # The winner stays in R1; they only move to R2 once all R1 matches
-    # are played.  _resolve_round_byes handles that when the last real
-    # R1 match is decided.
-    for m in round1:
+    # ── Pre-fill R1 bye player into R2M0 slot 1 (non-gated only) ──────
+    if round_info[0][1] and num_rounds > 1 and 2 < gated_from:
+        all_rounds[1][0].player1_id = players[-1].id
+
+    # ── Auto-resolve R1 bye matches (player with no opponent) ──────────
+    for m in all_rounds[0]:
         if m.player1_id and not m.player2_id:
             _set_winner(m, db.session.get(Participant, m.player1_id))
         elif m.player2_id and not m.player1_id:
             _set_winner(m, db.session.get(Participant, m.player2_id))
 
-    tournament.status = 'bracket'
-    db.session.commit()
+    # ── Link matches across rounds ─────────────────────────────────────
+    for r_idx in range(num_rounds - 1):
+        curr = all_rounds[r_idx]
+        has_bye = round_info[r_idx][1]
+        next_round = all_rounds[r_idx + 1]
+        next_has_bye = round_info[r_idx + 1][1]
 
+        # Build feeder list: None = bye placeholder, else = match object
+        feeders = []
+        if has_bye:
+            feeders.append(None)  # bye already pre-filled or will arrive via gate
+        for m in curr:
+            feeders.append(m)
 
-def _generate_double_bracket(tournament):
-    slots = _get_slots(tournament)
-    bracket_size = len(slots)
-    num_rounds = int(math.log2(bracket_size))
+        # If next round has a bye, pull the last feeder out — it skips ahead
+        skip_feeder = None
+        if next_has_bye:
+            skip_target = r_idx + 2
+            # Only skip if target is NOT gated
+            if skip_target < gated_from or skip_target >= num_rounds:
+                skip_feeder = feeders.pop()
 
-    # ── Winners Bracket ───────────────────────────────────────────────────────
-    wr_rounds = {}
+        # Pair remaining feeders into next round matches
+        for i in range(0, len(feeders), 2):
+            dest_idx = i // 2
+            if dest_idx >= len(next_round):
+                break
+            dest = next_round[dest_idx]
+            f1 = feeders[i]
+            f2 = feeders[i + 1] if i + 1 < len(feeders) else None
+            if f1 is not None:
+                f1.next_match_id = dest.id
+                f1.next_slot = 1
+            if f2 is not None:
+                f2.next_match_id = dest.id
+                f2.next_slot = 2
 
-    wr1 = []
-    for i in range(0, bracket_size, 2):
-        p1, p2 = slots[i], slots[i + 1]
-        m = Match(
-            tournament_id=tournament.id, bracket='W',
-            round_num=1, position=i // 2,
-            player1_id=p1.id if p1 else None,
-            player2_id=p2.id if p2 else None,
-            score1=0, score2=0,
-        )
-        if p1 and not p2:
-            _set_winner(m, p1)
-        elif p2 and not p1:
-            _set_winner(m, p2)
-        db.session.add(m)
-        wr1.append(m)
-    db.session.flush()
-    wr_rounds[1] = wr1
-
-    prev = wr1
-    for r in range(2, num_rounds + 1):
-        curr = []
-        for i in range(0, len(prev), 2):
-            m = Match(
-                tournament_id=tournament.id, bracket='W',
-                round_num=r, position=i // 2,
-                score1=0, score2=0,
-            )
-            db.session.add(m)
-            db.session.flush()
-            prev[i].next_match_id = m.id
-            if i + 1 < len(prev):
-                prev[i + 1].next_match_id = m.id
-            p1 = db.session.get(Participant, prev[i].winner_id) if prev[i].winner_id else None
-            p2 = db.session.get(Participant, prev[i + 1].winner_id) if (
-                i + 1 < len(prev) and prev[i + 1].winner_id
-            ) else None
-            m.player1_id = p1.id if p1 else None
-            m.player2_id = p2.id if p2 else None
-            f1 = prev[i]
-            f2 = prev[i + 1] if i + 1 < len(prev) else None
-            f1_done = f1.winner_id is not None or (f1.player1_id is None and f1.player2_id is None)
-            f2_done = f2 is None or f2.winner_id is not None or (f2.player1_id is None and f2.player2_id is None)
-            if f1_done and f2_done:
-                if p1 and not p2:
-                    _set_winner(m, p1)
-                elif p2 and not p1:
-                    _set_winner(m, p2)
-            curr.append(m)
-        wr_rounds[r] = curr
-        prev = curr
-
-    # ── Losers Bracket ────────────────────────────────────────────────────────
-    lb_round = 1
-
-    # LB R1: pair WR1 losers among themselves
-    lb_current = []
-    for i in range(0, len(wr_rounds[1]), 2):
-        m1 = wr_rounds[1][i]
-        m2 = wr_rounds[1][i + 1] if i + 1 < len(wr_rounds[1]) else None
-        m1_real = m1.player1_id is not None and m1.player2_id is not None
-        m2_real = m2 is not None and m2.player1_id is not None and m2.player2_id is not None
-        if not m1_real and not m2_real:
-            continue
-        lb_m = Match(
-            tournament_id=tournament.id, bracket='L',
-            round_num=lb_round, position=len(lb_current),
-            score1=0, score2=0,
-        )
-        db.session.add(lb_m)
-        db.session.flush()
-        if m1_real:
-            m1.loser_next_match_id = lb_m.id
-            m1.loser_slot = 1
-        if m2_real:
-            m2.loser_next_match_id = lb_m.id
-            m2.loser_slot = 2
-        lb_current.append(lb_m)
-    lb_round += 1
-
-    # Subsequent LB rounds: alternating combination + pure
-    for wr_r in range(2, num_rounds + 1):
-        # Combination round: lb winners (slot 1) + WR losers (slot 2)
-        wr_r_matches = wr_rounds[wr_r]
-        new_lb = []
-        for i in range(max(len(lb_current), len(wr_r_matches))):
-            lb_prev = lb_current[i] if i < len(lb_current) else None
-            wr_m = wr_r_matches[i] if i < len(wr_r_matches) else None
-            wr_real = wr_m is not None and wr_m.player1_id is not None and wr_m.player2_id is not None
-            if lb_prev is None and not wr_real:
-                continue
-            new_m = Match(
-                tournament_id=tournament.id, bracket='L',
-                round_num=lb_round, position=len(new_lb),
-                score1=0, score2=0,
-            )
-            db.session.add(new_m)
-            db.session.flush()
-            if lb_prev:
-                lb_prev.next_match_id = new_m.id
-                lb_prev.next_slot = 1
-            if wr_real:
-                wr_m.loser_next_match_id = new_m.id
-                wr_m.loser_slot = 2
-            new_lb.append(new_m)
-        lb_current = new_lb
-        lb_round += 1
-
-        # Pure round: pair lb_current down to half
-        if len(lb_current) > 1:
-            pure_lb = []
-            for i in range(0, len(lb_current), 2):
-                if i + 1 < len(lb_current):
-                    new_m = Match(
-                        tournament_id=tournament.id, bracket='L',
-                        round_num=lb_round, position=len(pure_lb),
-                        score1=0, score2=0,
-                    )
-                    db.session.add(new_m)
-                    db.session.flush()
-                    lb_current[i].next_match_id = new_m.id
-                    lb_current[i].next_slot = 1
-                    lb_current[i + 1].next_match_id = new_m.id
-                    lb_current[i + 1].next_slot = 2
-                    pure_lb.append(new_m)
-                else:
-                    pure_lb.append(lb_current[i])   # odd pass-through
-            lb_current = pure_lb
-            lb_round += 1
-
-    # ── Grand Final ───────────────────────────────────────────────────────────
-    gf = Match(
-        tournament_id=tournament.id, bracket='GF',
-        round_num=1, position=0,
-        score1=0, score2=0,
-    )
-    db.session.add(gf)
-    db.session.flush()
-
-    wr_final = wr_rounds[num_rounds][0]
-    wr_final.next_match_id = gf.id
-    wr_final.next_slot = 1
-
-    if lb_current:
-        lb_final = lb_current[0]
-        lb_final.next_match_id = gf.id
-        lb_final.next_slot = 2
+        # Skip feeder links to the round after next (slot 1 of first match)
+        if skip_feeder is not None:
+            if r_idx + 2 < num_rounds:
+                target = all_rounds[r_idx + 2][0]
+                skip_feeder.next_match_id = target.id
+                skip_feeder.next_slot = 1
 
     tournament.status = 'bracket'
     db.session.commit()
@@ -936,30 +821,34 @@ def new_tournament():
             flash('Tournament name is required.', 'danger')
             return redirect(url_for('new_tournament'))
 
-        # Parse dynamic prize splits: split_pct_1, split_pct_2, ...
+        # Parse dynamic prize splits: split_type_N, split_val_N
         ORDINALS = ['1st','2nd','3rd','4th','5th','6th','7th','8th']
         splits = []
         i = 1
         while True:
-            pct_str = request.form.get(f'split_pct_{i}', '').strip()
-            if not pct_str:
+            val_str = request.form.get(f'split_val_{i}', '').strip()
+            if not val_str:
                 break
+            split_type = request.form.get(f'split_type_{i}', 'pct').strip()
             try:
-                pct = int(pct_str)
+                val = float(val_str)
             except ValueError:
-                pct = 0
-            if pct > 0:
+                val = 0
+            if val > 0:
                 label = ORDINALS[i - 1] if i <= len(ORDINALS) else f'{i}th'
-                splits.append({'place': i, 'label': label, 'pct': pct})
+                if split_type == 'flat':
+                    splits.append({'place': i, 'label': label, 'type': 'flat', 'flat': val, 'pct': 0})
+                else:
+                    splits.append({'place': i, 'label': label, 'type': 'pct', 'pct': val, 'flat': 0})
             i += 1
 
         if not splits:
-            splits = [{'place': 1, 'label': '1st', 'pct': 70},
-                      {'place': 2, 'label': '2nd', 'pct': 30}]
+            splits = [{'place': 1, 'label': '1st', 'type': 'pct', 'pct': 70, 'flat': 0},
+                      {'place': 2, 'label': '2nd', 'type': 'pct', 'pct': 30, 'flat': 0}]
 
-        total_pct = sum(s['pct'] for s in splits)
+        total_pct = sum(s['pct'] for s in splits if s.get('type') == 'pct')
         if total_pct > 100:
-            flash(f'Prize split total is {total_pct}% — cannot exceed 100%.', 'danger')
+            flash(f'Percentage split total is {total_pct}% — cannot exceed 100%.', 'danger')
             return redirect(url_for('new_tournament'))
 
         t = Tournament(

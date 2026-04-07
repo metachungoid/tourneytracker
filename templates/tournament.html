@@ -59,7 +59,7 @@
         </div>
         {% endfor %}
         <div class="small mt-1 opacity-75">
-          {{ t.splits|map(attribute='pct')|list|join('/') }}% split
+          {% for s in t.splits %}{% if not loop.first %} / {% endif %}{% if s.get('type') == 'flat' %}${{ s.flat }}{% else %}{{ s.pct }}%{% endif %}{% endfor %} split
         </div>
       </div>
     </div>
