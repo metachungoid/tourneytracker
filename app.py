@@ -612,6 +612,14 @@ def _generate_single_bracket(tournament):
             if skip_target < gated_from or skip_target >= num_rounds:
                 skip_feeder = feeders.pop()
 
+        # Randomize bye position for gated rounds (so the same player
+        # doesn't always get the bye in semi-finals)
+        next_round_num = r_idx + 2  # 1-indexed
+        if len(feeders) % 2 == 1 and next_round_num >= gated_from:
+            bye_idx = random.randrange(len(feeders))
+            # Move the bye feeder to the end
+            feeders.append(feeders.pop(bye_idx))
+
         # Pair remaining feeders into next round matches
         for i in range(0, len(feeders), 2):
             dest_idx = i // 2
