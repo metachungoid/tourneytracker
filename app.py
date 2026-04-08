@@ -390,6 +390,11 @@ def _gate_advance(tournament, completed_round_num):
     Populates the next round only when ALL matches in the current round
     are decided.  Auto-resolves any byes in the populated round, then
     cascades if that round is also fully decided.
+
+    When matches in the round have different destination rounds (a
+    skip-feeder sending one winner past the semis), the winner→destination
+    assignments are randomized so no bracket position gets an inherent
+    advantage (bye to finals).
     """
     round_matches = Match.query.filter_by(
         tournament_id=tournament.id, bracket='W',
@@ -398,6 +403,29 @@ def _gate_advance(tournament, completed_round_num):
     for m in round_matches:
         if (m.player1_id or m.player2_id) and not m.winner_id:
             return  # round not yet complete
+
+    # Collect advances and check if randomization is needed
+    advances = [(m, m.next_match_id, m.next_slot)
+                for m in round_matches if m.winner_id and m.next_match_id]
+    if advances:
+        # Randomize when: destinations span multiple rounds (skip-feeder)
+        # OR odd number of advances (guarantees a bye in the next round).
+        # This prevents any bracket position from having a deterministic
+        # advantage (skipping to finals or getting a bye through semis).
+        dest_rounds = set()
+        for _, nmid, _ in advances:
+            nm = db.session.get(Match, nmid)
+            if nm:
+                dest_rounds.add(nm.round_num)
+
+        needs_shuffle = len(dest_rounds) > 1 or len(advances) % 2 == 1
+        if needs_shuffle and len(advances) >= 2:
+            dests = [(nmid, ns) for _, nmid, ns in advances]
+            random.shuffle(dests)
+            for i, (m, _, _) in enumerate(advances):
+                m.next_match_id = dests[i][0]
+                m.next_slot = dests[i][1]
+            db.session.flush()
 
     # Place ALL winners into next round
     for m in round_matches:
@@ -482,8 +510,9 @@ def _try_auto_advance(next_m, tournament):
 def advance_winner(match, tournament):
     """Advance the match winner to the next match.
 
-    Single elim: early rounds per-match, last 2 rounds gated.
-    Double elim: all per-match (no gating), losers drop to LB.
+    Both single and double elim gate the last 2 WB rounds (semis/finals)
+    so that bye recipients are randomized instead of positionally determined.
+    Double elim: losers always drop to LB immediately (before gating check).
     """
     is_double = (tournament.bracket_type or 'single') == 'double'
 
@@ -497,26 +526,7 @@ def advance_winner(match, tournament):
     if not next_m:
         return
 
-    num_rounds = tournament.rounds
-    if is_double:
-        gated_from = num_rounds + 99  # disable gating for double elim
-    else:
-        gated_from = num_rounds - 1 if num_rounds >= 3 else num_rounds + 99
-
-    # Semi-finals and finals: round-gated (single elim only)
-    if next_m.round_num >= gated_from and match.bracket == 'W':
-        _gate_advance(tournament, match.round_num)
-        return
-
-    # Per-match advancement: place winner into next match
-    winner_part = db.session.get(Participant, match.winner_id)
-    if match.next_slot == 1:
-        next_m.player1_id = winner_part.id
-    else:
-        next_m.player2_id = winner_part.id
-    db.session.flush()
-
-    # Drop loser to LB (double elim WB matches only)
+    # Drop loser to LB FIRST so LB stays active even when WB is gated
     if is_double and match.bracket == 'W' and match.loser_next_match_id:
         loser_id = match.player2_id if match.winner_id == match.player1_id else match.player1_id
         if loser_id:
@@ -529,6 +539,22 @@ def advance_winner(match, tournament):
                     lb_match.player2_id = loser_part.id
                 db.session.flush()
                 _try_auto_advance(lb_match, tournament)
+
+    num_rounds = tournament.rounds
+    gated_from = num_rounds - 1 if num_rounds >= 3 else num_rounds + 99
+
+    # Semi-finals and finals: round-gated (randomizes bye assignment)
+    if next_m.round_num >= gated_from and match.bracket == 'W':
+        _gate_advance(tournament, match.round_num)
+        return
+
+    # Per-match advancement: place winner into next match
+    winner_part = db.session.get(Participant, match.winner_id)
+    if match.next_slot == 1:
+        next_m.player1_id = winner_part.id
+    else:
+        next_m.player2_id = winner_part.id
+    db.session.flush()
 
     # Auto-advance bye in the winner's next match
     _try_auto_advance(next_m, tournament)
