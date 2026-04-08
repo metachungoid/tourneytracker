@@ -252,12 +252,13 @@
   {% macro print_match(match) %}
   {% set p1 = match.player1.profile if match.player1 else None %}
   {% set p2 = match.player2.profile if match.player2 else None %}
+  {% set effective_race = t.lb_race_to if t.bracket_type == 'double' and match.bracket == 'L' else t.race_to %}
   <div class="match-card {% if match.winner_id %}done{% endif %}">
     <div class="match-slot
       {% if match.winner_id and match.winner_id == match.player1_id %}slot-winner
       {% elif match.winner_id and match.winner_id != match.player1_id %}slot-loser{% endif %}">
       {% if p1 %}
-        {% if t.format == 'race3' %}
+        {% if effective_race > 1 %}
           <span class="score-pill
             {% if match.winner_id == match.player1_id %}win
             {% elif match.winner_id %}lose{% endif %}">
@@ -276,7 +277,7 @@
       {% if match.winner_id and match.winner_id == match.player2_id %}slot-winner
       {% elif match.winner_id and match.winner_id != match.player2_id %}slot-loser{% endif %}">
       {% if p2 %}
-        {% if t.format == 'race3' %}
+        {% if effective_race > 1 %}
           <span class="score-pill
             {% if match.winner_id == match.player2_id %}win
             {% elif match.winner_id %}lose{% endif %}">
@@ -294,7 +295,7 @@
   {% endmacro %}
 
   {# ─── Winners Bracket ─── #}
-  {% if t.format == 'double' %}
+  {% if t.bracket_type == 'double' %}
   <span class="section-title winners">Winners Bracket</span>
   {% endif %}
   <div class="bracket-wrap">
@@ -304,7 +305,7 @@
         <div class="round-label">
           {% if r == num_wr_rounds and t.format != 'double' %}Finals
           {% elif r == num_wr_rounds - 1 and num_wr_rounds > 2 and t.format != 'double' %}Semi-Finals
-          {% elif r == num_wr_rounds and t.format == 'double' %}WB Finals
+          {% elif r == num_wr_rounds and t.bracket_type == 'double' %}WB Finals
           {% else %}Round {{ r }}{% endif %}
         </div>
         {% for match in wr_rounds[r] %}
@@ -316,7 +317,7 @@
   </div>
 
   {# ─── Losers Bracket ─── #}
-  {% if t.format == 'double' and lb_rounds %}
+  {% if t.bracket_type == 'double' and lb_rounds %}
   <span class="section-title losers">Losers Bracket</span>
   <div class="bracket-wrap">
     <div class="bracket">

@@ -91,6 +91,9 @@ class Tournament(db.Model):
     fargo_rated = db.Column(db.Integer, default=0)        # 0=no, 1=yes
     prize_splits = db.Column(db.Text, default='[{"place":1,"label":"1st","pct":70},{"place":2,"label":"2nd","pct":30}]')
     seeding = db.Column(db.String(20), default='random')  # random | rankings
+    bracket_type = db.Column(db.String(10), default='single')  # single | double
+    lb_format = db.Column(db.String(20), default='bestof')      # bestof | raceto (losers bracket)
+    lb_race_to = db.Column(db.Integer, default=1)               # race_to for losers bracket
     champion_id = db.Column(db.Integer, db.ForeignKey('player_profile.id'), nullable=True)
     runner_up_id = db.Column(db.Integer, db.ForeignKey('player_profile.id'), nullable=True)
     champion = db.relationship('PlayerProfile', foreign_keys=[champion_id])
@@ -112,8 +115,13 @@ class Tournament(db.Model):
 
     @property
     def total_matches(self):
-        """Number of matches in a single-elim bracket."""
-        return max(self.num_players - 1, 0)
+        """Number of matches in the bracket."""
+        n = self.num_players
+        if n < 2:
+            return 0
+        if (self.bracket_type or 'single') == 'double':
+            return 2 * n - 2  # WB(n-1) + LB(n-2) + GF(1) = 2n-2
+        return n - 1
 
     @property
     def est_games_per_match(self):
@@ -126,8 +134,24 @@ class Tournament(db.Model):
         return round(1.5 * race, 1)
 
     @property
+    def lb_est_games_per_match(self):
+        """Average games per LB match."""
+        race = self.lb_race_to or 1
+        if race == 1:
+            return 1.0
+        return round(1.5 * race, 1)
+
+    @property
     def est_total_games(self):
         """Estimated total games across the tournament."""
+        n = self.num_players
+        if (self.bracket_type or 'single') == 'double' and n >= 2:
+            wb_matches = n - 1
+            lb_matches = max(n - 2, 0)
+            gf_matches = 1
+            return round(wb_matches * self.est_games_per_match
+                         + lb_matches * self.lb_est_games_per_match
+                         + gf_matches * self.est_games_per_match)
         return round(self.total_matches * self.est_games_per_match)
 
     @property
@@ -196,10 +220,10 @@ class Tournament(db.Model):
 
     @property
     def rounds(self):
-        """Number of rounds in the bracket (variable-size rounds, not power-of-2)."""
+        """Number of WB rounds in the bracket (variable-size rounds, not power-of-2)."""
         if self.status in ('bracket', 'complete'):
             r = db.session.query(db.func.max(Match.round_num)).filter_by(
-                tournament_id=self.id
+                tournament_id=self.id, bracket='W'
             ).scalar()
             return r or 0
         n = self.num_players
@@ -234,16 +258,28 @@ class Tournament(db.Model):
             return f'Best of {best_of}'
 
     @property
+    def lb_format_label(self):
+        race = self.lb_race_to or 1
+        if (self.lb_format or 'bestof') == 'raceto':
+            return f'Race to {race}'
+        best_of = 2 * race - 1
+        return f'Best of {best_of}'
+
+    @property
     def actual_games_played(self):
         """Count actual games played (excludes bye matches)."""
         games = 0
+        is_double = (self.bracket_type or 'single') == 'double'
         for m in self.matches:
             if not m.winner_id:
                 continue
-            # Skip byes — matches where one side had no player
             if not m.player1_id or not m.player2_id:
                 continue
-            if (self.race_to or 1) > 1:
+            if is_double and m.bracket == 'L':
+                race = self.lb_race_to or 1
+            else:
+                race = self.race_to or 1
+            if race > 1:
                 games += (m.score1 or 0) + (m.score2 or 0)
             else:
                 games += 1
@@ -409,13 +445,48 @@ def _gate_advance(tournament, completed_round_num):
         _gate_advance(tournament, next_round)
 
 
+def _try_auto_advance(next_m, tournament):
+    """If next_m has one player and no pending feeders for the empty slot,
+    auto-resolve it as a bye and recurse."""
+    if next_m.winner_id:
+        return
+    p1, p2 = next_m.player1_id, next_m.player2_id
+    if p1 and p2:
+        return  # real match
+    if not p1 and not p2:
+        return
+
+    empty_slot = 2 if p1 else 1
+    # Check both winner feeders and loser feeders
+    pending = Match.query.filter(
+        Match.next_match_id == next_m.id,
+        Match.next_slot == empty_slot,
+        Match.winner_id == None,  # noqa: E711
+    ).count()
+    if pending > 0:
+        return
+    # Also check loser feeders (WB losers dropping into LB)
+    pending_loser = Match.query.filter(
+        Match.loser_next_match_id == next_m.id,
+        Match.loser_slot == empty_slot,
+        Match.winner_id == None,  # noqa: E711
+    ).count()
+    if pending_loser > 0:
+        return
+
+    filled_part = db.session.get(Participant, p1 or p2)
+    _set_winner(next_m, filled_part)
+    advance_winner(next_m, tournament)
+
+
 def advance_winner(match, tournament):
     """Advance the match winner to the next match.
 
-    Early rounds: per-match advancement (immediate, no waiting).
-    Semi-finals and finals (last 2 rounds): round-gated (waits for
-    entire previous round to complete before populating).
+    Single elim: early rounds per-match, last 2 rounds gated.
+    Double elim: all per-match (no gating), losers drop to LB.
     """
+    is_double = (tournament.bracket_type or 'single') == 'double'
+
     if not match.next_match_id:
         if match.winner_id:
             loser_id = match.player2_id if match.winner_id == match.player1_id else match.player1_id
@@ -427,14 +498,17 @@ def advance_winner(match, tournament):
         return
 
     num_rounds = tournament.rounds
-    gated_from = num_rounds - 1 if num_rounds >= 3 else num_rounds + 99
+    if is_double:
+        gated_from = num_rounds + 99  # disable gating for double elim
+    else:
+        gated_from = num_rounds - 1 if num_rounds >= 3 else num_rounds + 99
 
-    # Semi-finals and finals: round-gated
-    if next_m.round_num >= gated_from:
+    # Semi-finals and finals: round-gated (single elim only)
+    if next_m.round_num >= gated_from and match.bracket == 'W':
         _gate_advance(tournament, match.round_num)
         return
 
-    # Per-match advancement for earlier rounds
+    # Per-match advancement: place winner into next match
     winner_part = db.session.get(Participant, match.winner_id)
     if match.next_slot == 1:
         next_m.player1_id = winner_part.id
@@ -442,25 +516,22 @@ def advance_winner(match, tournament):
         next_m.player2_id = winner_part.id
     db.session.flush()
 
-    # Auto-advance bye (one player, no pending feeders for the empty slot)
-    if next_m.winner_id:
-        return
-    p1, p2 = next_m.player1_id, next_m.player2_id
-    if p1 and p2:
-        return  # real match — wait for it to be played
-    if not p1 and not p2:
-        return
+    # Drop loser to LB (double elim WB matches only)
+    if is_double and match.bracket == 'W' and match.loser_next_match_id:
+        loser_id = match.player2_id if match.winner_id == match.player1_id else match.player1_id
+        if loser_id:
+            lb_match = db.session.get(Match, match.loser_next_match_id)
+            if lb_match:
+                loser_part = db.session.get(Participant, loser_id)
+                if match.loser_slot == 1:
+                    lb_match.player1_id = loser_part.id
+                else:
+                    lb_match.player2_id = loser_part.id
+                db.session.flush()
+                _try_auto_advance(lb_match, tournament)
 
-    empty_slot = 2 if p1 else 1
-    pending = Match.query.filter(
-        Match.next_match_id == next_m.id,
-        Match.next_slot == empty_slot,
-        Match.winner_id == None,  # noqa: E711
-    ).count()
-    if pending == 0:
-        filled_part = db.session.get(Participant, p1 or p2)
-        _set_winner(next_m, filled_part)
-        advance_winner(next_m, tournament)
+    # Auto-advance bye in the winner's next match
+    _try_auto_advance(next_m, tournament)
 
 
 # ---------------------------------------------------------------------------
@@ -503,6 +574,20 @@ def _clear_forward(match):
                 removed = True
             if removed:
                 _clear_forward(next_m)
+
+    # Cascade: remove loser from LB match (double elim)
+    if match.loser_next_match_id and loser_part_id:
+        lb_m = db.session.get(Match, match.loser_next_match_id)
+        if lb_m:
+            removed = False
+            if lb_m.player1_id == loser_part_id:
+                lb_m.player1_id = None
+                removed = True
+            elif lb_m.player2_id == loser_part_id:
+                lb_m.player2_id = None
+                removed = True
+            if removed:
+                _clear_forward(lb_m)
 
 
 # ---------------------------------------------------------------------------
@@ -646,10 +731,288 @@ def _generate_single_bracket(tournament):
     db.session.commit()
 
 
+def _generate_double_bracket(tournament):
+    """Generate a double-elimination bracket (WB + LB + Grand Final).
+
+    WB uses per-match advancement (no gating).
+    LB alternates dropdown rounds (WB losers enter) and consolidation
+    rounds (LB-only).  Grand Final is a single match.
+    """
+    players = _get_slots(tournament)
+    n = len(players)
+    if n < 4:
+        tournament.status = 'bracket'
+        db.session.commit()
+        return
+
+    # ══════════════════════════════════════════════════════════════════
+    # Phase 1: Winners Bracket (same structure as single elim, no gating)
+    # ══════════════════════════════════════════════════════════════════
+    wb_round_info = []
+    remaining = n
+    while remaining > 1:
+        num_matches = remaining // 2
+        has_bye = remaining % 2 == 1
+        wb_round_info.append((num_matches, has_bye))
+        remaining = num_matches + (1 if has_bye else 0)
+    num_wb_rounds = len(wb_round_info)
+
+    # Create WB matches
+    wb_rounds = []
+    for r_idx, (num_matches, _) in enumerate(wb_round_info):
+        round_matches = []
+        for i in range(num_matches):
+            kwargs = dict(
+                tournament_id=tournament.id, bracket='W',
+                round_num=r_idx + 1, position=i,
+                score1=0, score2=0,
+            )
+            if r_idx == 0:
+                p1_idx = i * 2
+                p2_idx = i * 2 + 1
+                if p1_idx < len(players):
+                    kwargs['player1_id'] = players[p1_idx].id
+                if p2_idx < len(players):
+                    kwargs['player2_id'] = players[p2_idx].id
+            m = Match(**kwargs)
+            db.session.add(m)
+            round_matches.append(m)
+        wb_rounds.append(round_matches)
+    db.session.flush()
+
+    # Pre-fill WB R1 bye player into R2M0 slot 1
+    if wb_round_info[0][1] and num_wb_rounds > 1:
+        wb_rounds[1][0].player1_id = players[-1].id
+
+    # Auto-resolve WB R1 bye matches
+    for m in wb_rounds[0]:
+        if m.player1_id and not m.player2_id:
+            _set_winner(m, db.session.get(Participant, m.player1_id))
+        elif m.player2_id and not m.player1_id:
+            _set_winner(m, db.session.get(Participant, m.player2_id))
+
+    # Link WB matches (no gating, no skip-ahead adjustment)
+    for r_idx in range(num_wb_rounds - 1):
+        curr = wb_rounds[r_idx]
+        has_bye = wb_round_info[r_idx][1]
+        next_round = wb_rounds[r_idx + 1]
+        next_has_bye = wb_round_info[r_idx + 1][1]
+
+        feeders = []
+        if has_bye:
+            feeders.append(None)
+        for m in curr:
+            feeders.append(m)
+
+        skip_feeder = None
+        if next_has_bye:
+            skip_feeder = feeders.pop()
+
+        for i in range(0, len(feeders), 2):
+            dest_idx = i // 2
+            if dest_idx >= len(next_round):
+                break
+            dest = next_round[dest_idx]
+            f1 = feeders[i]
+            f2 = feeders[i + 1] if i + 1 < len(feeders) else None
+            if f1 is not None:
+                f1.next_match_id = dest.id
+                f1.next_slot = 1
+            if f2 is not None:
+                f2.next_match_id = dest.id
+                f2.next_slot = 2
+
+        if skip_feeder is not None and r_idx + 2 < num_wb_rounds:
+            target = wb_rounds[r_idx + 2][0]
+            skip_feeder.next_match_id = target.id
+            skip_feeder.next_slot = 1
+
+    # ══════════════════════════════════════════════════════════════════
+    # Phase 2: Losers Bracket
+    # ══════════════════════════════════════════════════════════════════
+    # LB R1:  WB R1 losers pair up
+    # LB R2 (dropdown): LB R1 survivors vs WB R2 losers
+    # LB R3 (consolidation): LB R2 survivors play each other
+    # LB R4 (dropdown): LB R3 survivors vs WB R3 losers
+    # ...alternating...
+
+    # Count real losers per WB round (bye matches don't produce a real loser)
+    wb_losers_per_round = []
+    for r_idx, (num_matches, has_bye) in enumerate(wb_round_info):
+        real_losers = num_matches
+        # Bye matches in R1 auto-resolve — no real loser
+        if r_idx == 0:
+            for m in wb_rounds[0]:
+                if not m.player1_id or not m.player2_id:
+                    real_losers -= 1
+        wb_losers_per_round.append(real_losers)
+
+    lb_rounds = []       # list of lists of Match objects
+    lb_round_num = 0
+    lb_survivors = 0
+
+    for wb_r in range(num_wb_rounds):
+        wb_losers = wb_losers_per_round[wb_r]
+
+        if wb_r == 0:
+            # LB R1: WB R1 losers pair up
+            total = wb_losers
+            lb_matches = total // 2
+            lb_bye = total % 2 == 1
+            if lb_matches == 0 and not lb_bye:
+                continue  # No losers from R1 (all byes — shouldn't happen with >= 4)
+
+            lb_round_num += 1
+            round_matches = []
+            for i in range(lb_matches + (1 if lb_bye else 0)):
+                m = Match(
+                    tournament_id=tournament.id, bracket='L',
+                    round_num=lb_round_num, position=i,
+                    score1=0, score2=0,
+                )
+                db.session.add(m)
+                round_matches.append(m)
+            lb_rounds.append(round_matches)
+            lb_survivors = lb_matches + (1 if lb_bye else 0)
+
+        else:
+            # Dropdown round: LB survivors + WB losers
+            total = lb_survivors + wb_losers
+            if total <= 0:
+                continue
+            dd_matches = total // 2
+            dd_bye = total % 2 == 1
+            lb_round_num += 1
+            round_matches = []
+            for i in range(dd_matches + (1 if dd_bye else 0)):
+                m = Match(
+                    tournament_id=tournament.id, bracket='L',
+                    round_num=lb_round_num, position=i,
+                    score1=0, score2=0,
+                )
+                db.session.add(m)
+                round_matches.append(m)
+            lb_rounds.append(round_matches)
+            lb_survivors = dd_matches + (1 if dd_bye else 0)
+
+            # Consolidation round (skip for last WB round — no more dropdowns after)
+            if wb_r < num_wb_rounds - 1 and lb_survivors > 1:
+                c_matches = lb_survivors // 2
+                c_bye = lb_survivors % 2 == 1
+                lb_round_num += 1
+                round_matches = []
+                for i in range(c_matches + (1 if c_bye else 0)):
+                    m = Match(
+                        tournament_id=tournament.id, bracket='L',
+                        round_num=lb_round_num, position=i,
+                        score1=0, score2=0,
+                    )
+                    db.session.add(m)
+                    round_matches.append(m)
+                lb_rounds.append(round_matches)
+                lb_survivors = c_matches + (1 if c_bye else 0)
+
+    db.session.flush()
+
+    # ── Track LB round types for correct linking ──
+    # LB round types: 'init' (R1, WB R1 losers pair up),
+    #   'dropdown' (LB survivors + WB losers), 'consolidation' (LB-only)
+    # Pattern: [init, dropdown, consolidation, dropdown, consolidation, ...]
+    # For linking:
+    #   Before a consolidation round: 2:1 pairing (two matches → one)
+    #   Before a dropdown round: 1:1 (each LB match → slot 1 of dropdown match)
+    #     WB losers fill slot 2 of dropdown matches via loser_next_match_id
+    lb_round_types = []
+    for lb_r_idx_t in range(len(lb_rounds)):
+        if lb_r_idx_t == 0:
+            lb_round_types.append('init')
+        elif (lb_r_idx_t - 1) % 2 == 0:
+            lb_round_types.append('dropdown')
+        else:
+            lb_round_types.append('consolidation')
+
+    # Link LB matches internally (next_match_id / next_slot)
+    for lb_r_idx in range(len(lb_rounds) - 1):
+        curr = lb_rounds[lb_r_idx]
+        nxt = lb_rounds[lb_r_idx + 1]
+        next_type = lb_round_types[lb_r_idx + 1]
+
+        if next_type == 'consolidation':
+            # 2:1 pairing: matches [0,1] → dest 0, [2,3] → dest 1
+            for i, m in enumerate(curr):
+                dest_idx = i // 2
+                if dest_idx < len(nxt):
+                    m.next_match_id = nxt[dest_idx].id
+                    m.next_slot = 1 if i % 2 == 0 else 2
+        else:
+            # 1:1: each match → slot 1 of the corresponding dropdown match
+            for i, m in enumerate(curr):
+                if i < len(nxt):
+                    m.next_match_id = nxt[i].id
+                    m.next_slot = 1
+
+    # ══════════════════════════════════════════════════════════════════
+    # Phase 3: Link WB losers → LB (loser_next_match_id / loser_slot)
+    # ══════════════════════════════════════════════════════════════════
+
+    # WB R1 losers → LB R1 (first LB round)
+    # Pair WB R1 matches to LB R1 matches: WB M0 loser + WB M1 loser → LB M0
+    if lb_rounds:
+        lb_r_idx = 0  # LB round index for WB R1 losers
+        real_wb_r1 = [m for m in wb_rounds[0] if m.player1_id and m.player2_id]
+        for i, wb_m in enumerate(real_wb_r1):
+            dest_idx = i // 2
+            if dest_idx < len(lb_rounds[lb_r_idx]):
+                wb_m.loser_next_match_id = lb_rounds[lb_r_idx][dest_idx].id
+                wb_m.loser_slot = 1 if i % 2 == 0 else 2
+
+    # WB R2+ losers → corresponding dropdown LB round
+    # The dropdown rounds are: LB round index 1 (for WB R2), 3 (for WB R3), 5 (for WB R4), etc.
+    lb_dd_idx = 1  # LB round index for the first dropdown (WB R2 losers)
+    for wb_r in range(1, num_wb_rounds):
+        if lb_dd_idx >= len(lb_rounds):
+            break
+        dd_round = lb_rounds[lb_dd_idx]
+        # WB losers go to slot 2 of dropdown matches; LB survivors get slot 1
+        for i, wb_m in enumerate(wb_rounds[wb_r]):
+            if i < len(dd_round):
+                wb_m.loser_next_match_id = dd_round[i].id
+                wb_m.loser_slot = 2
+        lb_dd_idx += 2  # skip consolidation round
+
+    # ══════════════════════════════════════════════════════════════════
+    # Phase 4: Grand Final
+    # ══════════════════════════════════════════════════════════════════
+    gf = Match(
+        tournament_id=tournament.id, bracket='GF',
+        round_num=1, position=0,
+        score1=0, score2=0,
+    )
+    db.session.add(gf)
+    db.session.flush()
+
+    # WB Final winner → GF slot 1
+    wb_final = wb_rounds[-1][-1]
+    wb_final.next_match_id = gf.id
+    wb_final.next_slot = 1
+
+    # LB Final winner → GF slot 2
+    if lb_rounds:
+        lb_final = lb_rounds[-1][-1]
+        lb_final.next_match_id = gf.id
+        lb_final.next_slot = 2
+
+    tournament.status = 'bracket'
+    db.session.commit()
+
+
 def generate_bracket(tournament):
     Match.query.filter_by(tournament_id=tournament.id).delete()
     db.session.flush()
-    _generate_single_bracket(tournament)
+    if (tournament.bracket_type or 'single') == 'double':
+        _generate_double_bracket(tournament)
+    else:
+        _generate_single_bracket(tournament)
 
 
 # ---------------------------------------------------------------------------
@@ -815,6 +1178,13 @@ def new_tournament():
             race_to = math.ceil(format_value / 2)
         else:
             race_to = format_value
+        bracket_type = request.form.get('bracket_type', 'single')
+        lb_fmt = request.form.get('lb_format', 'bestof')
+        lb_format_value = int(request.form.get('lb_format_value', 1) or 1)
+        if lb_fmt == 'bestof':
+            lb_race_to = math.ceil(lb_format_value / 2)
+        else:
+            lb_race_to = lb_format_value
         fargo_rated = 1 if request.form.get('fargo_rated') else 0
         seeding = request.form.get('seeding', 'random')
         t_date_str = request.form.get('tournament_date', '').strip()
@@ -863,6 +1233,8 @@ def new_tournament():
             name=name, buyin=buyin, table_fee=table_fee,
             format=fmt, seeding=seeding,
             race_to=race_to, fargo_rated=fargo_rated,
+            bracket_type=bracket_type,
+            lb_format=lb_fmt, lb_race_to=lb_race_to,
             prize_splits=json.dumps(splits),
             tournament_date=t_date,
         )
@@ -926,8 +1298,10 @@ def remove_player(tid, part_id):
         flash('Cannot remove players after bracket is generated.', 'warning')
         return redirect(url_for('tournament', tid=tid))
     p = Participant.query.get_or_404(part_id)
+    name = p.profile.name
     db.session.delete(p)
     db.session.commit()
+    flash(f'{name} removed from tournament.', 'info')
     return redirect(url_for('tournament', tid=tid))
 
 
@@ -961,7 +1335,7 @@ def bracket(tid):
     lb_rounds = {}
     gf_match = None
     num_lb_rounds = 0
-    if (t.format or 'single') == 'double':
+    if (t.bracket_type or 'single') == 'double':
         max_lb = db.session.query(db.func.max(Match.round_num)).filter_by(
             tournament_id=tid, bracket='L'
         ).scalar() or 0
@@ -997,7 +1371,7 @@ def bracket_print(tid):
     lb_rounds = {}
     gf_match = None
     num_lb_rounds = 0
-    if (t.format or 'single') == 'double':
+    if (t.bracket_type or 'single') == 'double':
         max_lb = db.session.query(db.func.max(Match.round_num)).filter_by(
             tournament_id=tid, bracket='L'
         ).scalar() or 0
@@ -1048,7 +1422,10 @@ def add_score(tid, mid, player_num):
     if match.winner_id:
         return redirect(url_for('bracket', tid=tid))
 
-    race_to = t.race_to or 3
+    if (t.bracket_type or 'single') == 'double' and match.bracket == 'L':
+        race_to = t.lb_race_to or t.race_to or 3
+    else:
+        race_to = t.race_to or 3
     if player_num == 1:
         match.score1 = (match.score1 or 0) + 1
         if match.score1 >= race_to:
@@ -1191,6 +1568,17 @@ def create_default_admin():
 
 with app.app_context():
     db.create_all()
+    # Migration: add new columns for double elimination support
+    for col_sql in [
+        "ALTER TABLE tournament ADD COLUMN bracket_type VARCHAR(10) DEFAULT 'single'",
+        "ALTER TABLE tournament ADD COLUMN lb_format VARCHAR(20) DEFAULT 'bestof'",
+        "ALTER TABLE tournament ADD COLUMN lb_race_to INTEGER DEFAULT 1",
+    ]:
+        try:
+            db.session.execute(db.text(col_sql))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     create_default_admin()
 
 if __name__ == '__main__':

@@ -128,7 +128,7 @@
     <div class="card shadow-sm">
       <div class="card-body text-center">
         {% if t.num_players >= 2 %}
-          {% set min_players = 4 if t.format == 'double' else 2 %}
+          {% set min_players = 4 if t.bracket_type == 'double' else 2 %}
           {% if t.num_players >= min_players %}
             <form method="post" action="{{ url_for('generate', tid=t.id) }}"
                   onsubmit="return confirm('Lock in {{ t.num_players }} players and generate {{ t.format_label }} bracket?')">
@@ -169,9 +169,10 @@
               <span class="text-muted small ms-2"><i class="bi bi-telephone me-1"></i>{{ part.profile.phone }}</span>
             {% endif %}
           </div>
-          <form method="post" action="{{ url_for('remove_player', tid=t.id, part_id=part.id) }}">
-            <button class="btn btn-sm btn-outline-danger py-0">
-              <i class="bi bi-x"></i>
+          <form method="post" action="{{ url_for('remove_player', tid=t.id, part_id=part.id) }}"
+                onsubmit="return confirm('Remove {{ part.profile.name }} from this tournament?')">
+            <button type="submit" class="btn btn-sm btn-outline-danger py-0">
+              <i class="bi bi-x-lg"></i>
             </button>
           </form>
         </li>

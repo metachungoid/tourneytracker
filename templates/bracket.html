@@ -4,6 +4,7 @@
 {% macro match_card(match, t, show_controls) %}
 {% set p1 = match.player1.profile if match.player1 else None %}
 {% set p2 = match.player2.profile if match.player2 else None %}
+{% set effective_race = t.lb_race_to if t.bracket_type == 'double' and match.bracket == 'L' else t.race_to %}
 <div class="match-card {% if match.winner_id %}match-done{% endif %}">
 
   {# ── Player 1 ── #}
@@ -11,22 +12,22 @@
     {% if match.winner_id and match.winner_id == match.player1_id %}slot-winner
     {% elif match.winner_id and match.winner_id != match.player1_id %}slot-loser{% endif %}">
     {% if p1 %}
-      {% if t.race_to > 1 and not match.winner_id %}
+      {% if effective_race > 1 and not match.winner_id %}
         <span class="score-badge">{{ match.score1 or 0 }}</span>
       {% elif match.winner_id and match.winner_id == match.player1_id %}
-        {% if t.race_to > 1 %}
+        {% if effective_race > 1 %}
           <span class="score-badge score-win">{{ match.score1 or 0 }}</span>
         {% else %}
           <i class="bi bi-check-circle-fill text-success me-1 small"></i>
         {% endif %}
       {% elif match.winner_id %}
-        {% if t.race_to > 1 %}
+        {% if effective_race > 1 %}
           <span class="score-badge score-lose">{{ match.score1 or 0 }}</span>
         {% endif %}
       {% endif %}
       <span class="player-name">{{ p1.name }}{% if t.fargo_rated and p1.fargo_rating %} <span class="fargo-badge">{{ p1.fargo_rating }}</span>{% endif %}</span>
       {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
-        {% if t.race_to > 1 %}
+        {% if effective_race > 1 %}
           <form method="post"
                 action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=1) }}"
                 class="d-inline ms-auto">
@@ -52,22 +53,22 @@
     {% if match.winner_id and match.winner_id == match.player2_id %}slot-winner
     {% elif match.winner_id and match.winner_id != match.player2_id %}slot-loser{% endif %}">
     {% if p2 %}
-      {% if t.race_to > 1 and not match.winner_id %}
+      {% if effective_race > 1 and not match.winner_id %}
         <span class="score-badge">{{ match.score2 or 0 }}</span>
       {% elif match.winner_id and match.winner_id == match.player2_id %}
-        {% if t.race_to > 1 %}
+        {% if effective_race > 1 %}
           <span class="score-badge score-win">{{ match.score2 or 0 }}</span>
         {% else %}
           <i class="bi bi-check-circle-fill text-success me-1 small"></i>
         {% endif %}
       {% elif match.winner_id %}
-        {% if t.race_to > 1 %}
+        {% if effective_race > 1 %}
           <span class="score-badge score-lose">{{ match.score2 or 0 }}</span>
         {% endif %}
       {% endif %}
       <span class="player-name">{{ p2.name }}{% if t.fargo_rated and p2.fargo_rating %} <span class="fargo-badge">{{ p2.fargo_rating }}</span>{% endif %}</span>
       {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
-        {% if t.race_to > 1 %}
+        {% if effective_race > 1 %}
           <form method="post"
                 action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=2) }}"
                 class="d-inline ms-auto">
@@ -188,6 +189,11 @@
   <span class="text-muted small ms-2">(~{{ t.est_games_per_match }} games/match avg, {{ t.table_fee|money }}/game table fee)</span>
 </div>
 {% endif %}
+{% if t.bracket_type == 'double' and (t.lb_race_to or 1) != (t.race_to or 1) %}
+<div class="alert alert-danger py-2 mb-3">
+  <i class="bi bi-arrow-down-circle me-1"></i><strong>Losers Bracket: {{ t.lb_format_label }}</strong> — first player to win {{ t.lb_race_to }} game{{ 's' if t.lb_race_to > 1 else '' }} takes the match.
+</div>
+{% endif %}
 
 <!-- Champion banner -->
 {% if t.champion %}
@@ -239,7 +245,7 @@
 {% endif %}
 
 <!-- ═══════════════════════════ WINNERS BRACKET ═══════════════════════════ -->
-{% if t.format == 'double' %}
+{% if t.bracket_type == 'double' %}
 <h5 class="bracket-section-title text-primary mb-2">
   <i class="bi bi-trophy me-2"></i>Winners Bracket
 </h5>
@@ -251,7 +257,7 @@
       <div class="round-label">
         {% if r == num_wr_rounds and t.format != 'double' %}Finals
         {% elif r == num_wr_rounds - 1 and num_wr_rounds > 2 and t.format != 'double' %}Semi-Finals
-        {% elif r == num_wr_rounds and t.format == 'double' %}WB Finals
+        {% elif r == num_wr_rounds and t.bracket_type == 'double' %}WB Finals
         {% else %}Round {{ r }}{% endif %}
       </div>
       {% for match in wr_rounds[r] %}
@@ -263,7 +269,7 @@
 </div>
 
 <!-- ═══════════════════════════ LOSERS BRACKET ════════════════════════════ -->
-{% if t.format == 'double' and lb_rounds %}
+{% if t.bracket_type == 'double' and lb_rounds %}
 <h5 class="bracket-section-title text-danger mt-4 mb-2">
   <i class="bi bi-arrow-down-circle me-2"></i>Losers Bracket
 </h5>
@@ -333,6 +339,41 @@
     const badge = document.getElementById('live-badge');
     if (badge) badge.style.display = 'none';
   }, { once: true });
+})();
+</script>
+{% endif %}
+{% if current_user.is_authenticated and t.status != 'complete' %}
+<script>
+// Submit score/winner forms via fetch, then reload preserving scroll position
+document.addEventListener('submit', function(e) {
+  const form = e.target;
+  if (!form.method || form.method.toLowerCase() !== 'post') return;
+  // Only intercept bracket action forms (score, winner, clear)
+  const action = form.action || '';
+  if (!action.includes('/add_score/') && !action.includes('/set_winner/') && !action.includes('/clear_winner/')) return;
+
+  e.preventDefault();
+  const scrollY = window.scrollY;
+  fetch(action, {
+    method: 'POST',
+    body: new URLSearchParams(new FormData(form)),
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    redirect: 'follow',
+  }).then(() => {
+    sessionStorage.setItem('bracketScrollY', scrollY);
+    location.reload();
+  }).catch(() => {
+    sessionStorage.setItem('bracketScrollY', scrollY);
+    location.reload();
+  });
+});
+// Restore scroll position after reload
+(function() {
+  const saved = sessionStorage.getItem('bracketScrollY');
+  if (saved !== null) {
+    sessionStorage.removeItem('bracketScrollY');
+    window.scrollTo(0, parseInt(saved, 10));
+  }
 })();
 </script>
 {% endif %}
