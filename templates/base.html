@@ -10,7 +10,7 @@
 </head>
 <body>
   <nav class="navbar navbar-expand-md navbar-dark bg-dark px-4">
-    <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">
+    <a class="navbar-brand fw-bold" href="{{ url_for('tournaments.index') }}">
       <i class="bi bi-trophy-fill text-warning me-2"></i>TourneyTracker
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navmenu">
@@ -19,18 +19,18 @@
     <div class="collapse navbar-collapse" id="navmenu">
       <ul class="navbar-nav me-auto">
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('rankings') }}">
+          <a class="nav-link" href="{{ url_for('rankings.rankings') }}">
             <i class="bi bi-bar-chart-fill me-1"></i>Rankings
           </a>
         </li>
         {% if current_user.is_authenticated %}
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('players') }}">
+          <a class="nav-link" href="{{ url_for('players.players') }}">
             <i class="bi bi-people-fill me-1"></i>Players
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('new_tournament') }}">
+          <a class="nav-link" href="{{ url_for('tournaments.new_tournament') }}">
             <i class="bi bi-plus-circle me-1"></i>New Tournament
           </a>
         </li>
@@ -44,18 +44,18 @@
           </span>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('admin_panel') }}">
+          <a class="nav-link" href="{{ url_for('admin.admin_panel') }}">
             <i class="bi bi-shield-lock me-1"></i>Admin
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-warning" href="{{ url_for('logout') }}">
+          <a class="nav-link text-warning" href="{{ url_for('auth.logout') }}">
             <i class="bi bi-box-arrow-right me-1"></i>Logout
           </a>
         </li>
         {% else %}
         <li class="nav-item">
-          <a class="nav-link text-warning" href="{{ url_for('login') }}">
+          <a class="nav-link text-warning" href="{{ url_for('auth.login') }}">
             <i class="bi bi-lock-fill me-1"></i>Admin Login
           </a>
         </li>

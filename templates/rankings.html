@@ -65,7 +65,7 @@
   <i class="bi bi-bar-chart display-1"></i>
   <p class="mt-3 fs-5">No players registered yet.</p>
   {% if current_user.is_authenticated %}
-    <a href="{{ url_for('add_player_profile') }}" class="btn btn-warning">Add Players</a>
+    <a href="{{ url_for('players.add_player_profile') }}" class="btn btn-warning">Add Players</a>
   {% endif %}
 </div>
 {% endif %}

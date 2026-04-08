@@ -208,7 +208,7 @@
 <!-- Toolbar -->
 <div class="toolbar no-print">
   <h6>🖨 Print / Share — {{ t.name }}</h6>
-  <a href="{{ url_for('bracket', tid=t.id) }}" class="btn-tool btn-back">← Back</a>
+  <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn-tool btn-back">← Back</a>
   <button class="btn-tool btn-download" onclick="downloadImage()">⬇ Download PNG</button>
   <button class="btn-tool btn-print" onclick="window.print()">🖨 Print</button>
 </div>

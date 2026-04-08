@@ -4,7 +4,7 @@
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4">
   <h2 class="mb-0"><i class="bi bi-people-fill text-warning me-2"></i>Player Registry</h2>
-  <a href="{{ url_for('add_player_profile') }}" class="btn btn-warning">
+  <a href="{{ url_for('players.add_player_profile') }}" class="btn btn-warning">
     <i class="bi bi-person-plus me-1"></i>Add Player
   </a>
 </div>
@@ -47,11 +47,11 @@
           {% else %}—{% endif %}
         </td>
         <td class="text-end">
-          <a href="{{ url_for('edit_player_profile', pid=p.id) }}"
+          <a href="{{ url_for('players.edit_player_profile', pid=p.id) }}"
              class="btn btn-sm btn-outline-secondary me-1">
             <i class="bi bi-pencil"></i>
           </a>
-          <form method="post" action="{{ url_for('delete_player_profile', pid=p.id) }}"
+          <form method="post" action="{{ url_for('players.delete_player_profile', pid=p.id) }}"
                 class="d-inline"
                 onsubmit="return confirm('Remove {{ p.name }} from the registry?')">
             <button class="btn btn-sm btn-outline-danger">
@@ -67,7 +67,7 @@
 {% else %}
 <div class="text-center py-5 text-muted">
   <i class="bi bi-people display-1"></i>
-  <p class="mt-3 fs-5">No players yet. <a href="{{ url_for('add_player_profile') }}">Add your first player.</a></p>
+  <p class="mt-3 fs-5">No players yet. <a href="{{ url_for('players.add_player_profile') }}">Add your first player.</a></p>
 </div>
 {% endif %}
 {% endblock %}

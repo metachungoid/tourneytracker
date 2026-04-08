@@ -29,13 +29,13 @@
       {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
         {% if effective_race > 1 %}
           <form method="post"
-                action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=1) }}"
+                action="{{ url_for('tournaments.add_score', tid=t.id, mid=match.id, player_num=1) }}"
                 class="d-inline ms-auto">
             <button class="btn btn-xs btn-outline-primary" title="+1 point">+1</button>
           </form>
         {% else %}
           <form method="post"
-                action="{{ url_for('set_winner', tid=t.id, mid=match.id, part_id=match.player1_id) }}"
+                action="{{ url_for('tournaments.set_winner', tid=t.id, mid=match.id, part_id=match.player1_id) }}"
                 class="d-inline ms-auto">
             <button class="btn btn-xs btn-outline-success" title="Mark as winner">W</button>
           </form>
@@ -70,13 +70,13 @@
       {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
         {% if effective_race > 1 %}
           <form method="post"
-                action="{{ url_for('add_score', tid=t.id, mid=match.id, player_num=2) }}"
+                action="{{ url_for('tournaments.add_score', tid=t.id, mid=match.id, player_num=2) }}"
                 class="d-inline ms-auto">
             <button class="btn btn-xs btn-outline-primary" title="+1 point">+1</button>
           </form>
         {% else %}
           <form method="post"
-                action="{{ url_for('set_winner', tid=t.id, mid=match.id, part_id=match.player2_id) }}"
+                action="{{ url_for('tournaments.set_winner', tid=t.id, mid=match.id, part_id=match.player2_id) }}"
                 class="d-inline ms-auto">
             <button class="btn btn-xs btn-outline-success" title="Mark as winner">W</button>
           </form>
@@ -91,7 +91,7 @@
   {% if show_controls and current_user.is_authenticated and match.winner_id and p1 and p2 %}
   <div class="match-change-bar">
     <form method="post"
-          action="{{ url_for('clear_winner', tid=t.id, mid=match.id) }}"
+          action="{{ url_for('tournaments.clear_winner', tid=t.id, mid=match.id) }}"
           onsubmit="return confirm('Clear this result? All downstream matches will be reset.')">
       <button class="btn btn-xs btn-outline-warning w-100" title="Undo winner">
         <i class="bi bi-arrow-counterclockwise me-1"></i>Change Winner
@@ -220,13 +220,13 @@
 <!-- Admin actions -->
 {% if current_user.is_authenticated %}
 <div class="d-flex gap-2 mb-4 flex-wrap">
-  <a href="{{ url_for('tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-sm">
+  <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Back to Roster
   </a>
-  <a href="{{ url_for('bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
+  <a href="{{ url_for('tournaments.bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
     <i class="bi bi-printer me-1"></i>Print / Share
   </a>
-  <form method="post" action="{{ url_for('reset_tournament', tid=t.id) }}"
+  <form method="post" action="{{ url_for('tournaments.reset_tournament', tid=t.id) }}"
         onsubmit="return confirm('Reset bracket and reopen registration?')">
     <button class="btn btn-outline-warning btn-sm">
       <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Bracket
@@ -235,10 +235,10 @@
 </div>
 {% else %}
 <div class="d-flex gap-2 mb-4">
-  <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+  <a href="{{ url_for('tournaments.index') }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Back
   </a>
-  <a href="{{ url_for('bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
+  <a href="{{ url_for('tournaments.bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
     <i class="bi bi-printer me-1"></i>Print / Share
   </a>
 </div>
@@ -316,7 +316,7 @@
   let statusHash = null;
 
   function poll() {
-    fetch('{{ url_for("bracket_status", tid=t.id) }}')
+    fetch('{{ url_for("tournaments.bracket_status", tid=t.id) }}')
       .then(r => r.json())
       .then(data => {
         const h = data.status + ':' + data.decided;

@@ -79,7 +79,7 @@
         <span class="text-muted fw-normal small ms-1">({{ current_user.username }})</span>
       </div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('admin_change_password') }}">
+        <form method="post" action="{{ url_for('admin.admin_change_password') }}">
           <div class="mb-3">
             <label class="form-label small">Current Password</label>
             <input type="password" name="current_password" class="form-control" required>
@@ -120,7 +120,7 @@
             </div>
           </div>
           {% if a.id != current_user.id %}
-          <form method="post" action="{{ url_for('admin_delete_admin', aid=a.id) }}"
+          <form method="post" action="{{ url_for('admin.admin_delete_admin', aid=a.id) }}"
                 onsubmit="return confirm('Remove admin {{ a.username }}?')">
             <button class="btn btn-sm btn-outline-danger py-0">
               <i class="bi bi-trash"></i>
@@ -138,7 +138,7 @@
         <i class="bi bi-person-plus-fill me-2"></i>Add Admin Account
       </div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('admin_add_admin') }}">
+        <form method="post" action="{{ url_for('admin.admin_add_admin') }}">
           <div class="mb-2">
             <input type="text" name="username" class="form-control form-control-sm"
                    placeholder="Username" required>
@@ -160,16 +160,16 @@
     <div class="card shadow-sm">
       <div class="card-header fw-semibold"><i class="bi bi-grid me-2"></i>Quick Links</div>
       <div class="card-body d-flex flex-column gap-2">
-        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ url_for('tournaments.index') }}" class="btn btn-outline-secondary btn-sm">
           <i class="bi bi-house me-1"></i>Home
         </a>
-        <a href="{{ url_for('players') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ url_for('players.players') }}" class="btn btn-outline-secondary btn-sm">
           <i class="bi bi-people me-1"></i>Player Registry
         </a>
-        <a href="{{ url_for('rankings') }}" class="btn btn-outline-secondary btn-sm">
+        <a href="{{ url_for('rankings.rankings') }}" class="btn btn-outline-secondary btn-sm">
           <i class="bi bi-bar-chart me-1"></i>Rankings
         </a>
-        <a href="{{ url_for('new_tournament') }}" class="btn btn-outline-warning btn-sm">
+        <a href="{{ url_for('tournaments.new_tournament') }}" class="btn btn-outline-warning btn-sm">
           <i class="bi bi-plus-circle me-1"></i>New Tournament
         </a>
       </div>
@@ -214,11 +214,11 @@
         </td>
         <td class="text-end">
           {% if t.status == 'open' %}
-            <a href="{{ url_for('tournament', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Manage</a>
+            <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Manage</a>
           {% else %}
-            <a href="{{ url_for('bracket', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Bracket</a>
+            <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Bracket</a>
           {% endif %}
-          <form method="post" action="{{ url_for('delete_tournament', tid=t.id) }}"
+          <form method="post" action="{{ url_for('tournaments.delete_tournament', tid=t.id) }}"
                 class="d-inline" onsubmit="return confirm('Delete {{ t.name }}?')">
             <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
           </form>
@@ -266,11 +266,11 @@
         <td class="text-center">{{ p.match_wins }}</td>
         <td class="text-center">{{ p.tournaments_entered }}</td>
         <td class="text-end">
-          <a href="{{ url_for('edit_player_profile', pid=p.id) }}"
+          <a href="{{ url_for('players.edit_player_profile', pid=p.id) }}"
              class="btn btn-xs btn-outline-secondary">
             <i class="bi bi-pencil"></i>
           </a>
-          <form method="post" action="{{ url_for('delete_player_profile', pid=p.id) }}"
+          <form method="post" action="{{ url_for('players.delete_player_profile', pid=p.id) }}"
                 class="d-inline" onsubmit="return confirm('Remove {{ p.name }}?')">
             <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
           </form>

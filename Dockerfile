@@ -6,6 +6,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY app.py .
+COPY models.py .
+COPY bracket/ bracket/
+COPY routes/ routes/
 COPY templates/ templates/
 COPY static/ static/
 
