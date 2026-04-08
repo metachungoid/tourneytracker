@@ -848,6 +848,7 @@ def _generate_double_bracket(tournament):
         wb_losers_per_round.append(real_losers)
 
     lb_rounds = []       # list of lists of Match objects
+    lb_round_bye = []    # True if round has a bye at last position
     lb_round_num = 0
     lb_survivors = 0
 
@@ -873,6 +874,7 @@ def _generate_double_bracket(tournament):
                 db.session.add(m)
                 round_matches.append(m)
             lb_rounds.append(round_matches)
+            lb_round_bye.append(lb_bye)
             lb_survivors = lb_matches + (1 if lb_bye else 0)
 
         else:
@@ -893,6 +895,7 @@ def _generate_double_bracket(tournament):
                 db.session.add(m)
                 round_matches.append(m)
             lb_rounds.append(round_matches)
+            lb_round_bye.append(dd_bye)
             lb_survivors = dd_matches + (1 if dd_bye else 0)
 
             # Consolidation round (skip for last WB round — no more dropdowns after)
@@ -910,6 +913,7 @@ def _generate_double_bracket(tournament):
                     db.session.add(m)
                     round_matches.append(m)
                 lb_rounds.append(round_matches)
+                lb_round_bye.append(c_bye)
                 lb_survivors = c_matches + (1 if c_bye else 0)
 
     db.session.flush()
@@ -932,24 +936,40 @@ def _generate_double_bracket(tournament):
             lb_round_types.append('consolidation')
 
     # Link LB matches internally (next_match_id / next_slot)
+    # When two consecutive rounds both have byes, reorder linking so the
+    # bye winner from round N goes to a real match in round N+1 (not
+    # another bye).  This prevents any player getting 2 byes in a row.
     for lb_r_idx in range(len(lb_rounds) - 1):
         curr = lb_rounds[lb_r_idx]
         nxt = lb_rounds[lb_r_idx + 1]
         next_type = lb_round_types[lb_r_idx + 1]
+        consecutive_byes = (lb_round_bye[lb_r_idx] and lb_round_bye[lb_r_idx + 1]
+                            and len(curr) >= 2)
 
         if next_type == 'consolidation':
             # 2:1 pairing: matches [0,1] → dest 0, [2,3] → dest 1
-            for i, m in enumerate(curr):
-                dest_idx = i // 2
+            link_order = list(range(len(curr)))
+            if consecutive_byes:
+                # Swap last two so bye (last, even pos) moves to odd pos
+                # (slot 2 of a real match) instead of slot 1 of the bye dest
+                link_order[-1], link_order[-2] = link_order[-2], link_order[-1]
+            for link_i, src_idx in enumerate(link_order):
+                dest_idx = link_i // 2
                 if dest_idx < len(nxt):
-                    m.next_match_id = nxt[dest_idx].id
-                    m.next_slot = 1 if i % 2 == 0 else 2
+                    curr[src_idx].next_match_id = nxt[dest_idx].id
+                    curr[src_idx].next_slot = 1 if link_i % 2 == 0 else 2
         else:
             # 1:1: each match → slot 1 of the corresponding dropdown match
-            for i, m in enumerate(curr):
-                if i < len(nxt):
-                    m.next_match_id = nxt[i].id
-                    m.next_slot = 1
+            link_order = list(range(len(curr)))
+            if consecutive_byes:
+                # Move bye (last) to position 0 so it feeds a dropdown match
+                # that has a WB loser opponent, not the unfed bye match
+                bye_idx = len(curr) - 1
+                link_order = [bye_idx] + list(range(bye_idx))
+            for link_i, src_idx in enumerate(link_order):
+                if link_i < len(nxt):
+                    curr[src_idx].next_match_id = nxt[link_i].id
+                    curr[src_idx].next_slot = 1
 
     # ══════════════════════════════════════════════════════════════════
     # Phase 3: Link WB losers → LB (loser_next_match_id / loser_slot)
