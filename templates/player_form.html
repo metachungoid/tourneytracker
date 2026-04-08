@@ -8,13 +8,23 @@
       <i class="bi bi-person-{{ 'gear' if player else 'plus' }} text-warning me-2"></i>
       {{ 'Edit Player' if player else 'Add Player' }}
     </h2>
+    <div class="text-muted small mb-3">
+      <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a>
+    </div>
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <form method="post">
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
-            <input type="text" name="name" class="form-control" required autofocus
-                   value="{{ player.name if player else '' }}">
+          <div class="row g-3 mb-3">
+            <div class="col">
+              <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
+              <input type="text" name="first_name" class="form-control" required autofocus
+                     value="{{ player.first_name if player else '' }}">
+            </div>
+            <div class="col">
+              <label class="form-label fw-semibold">Last Name</label>
+              <input type="text" name="last_name" class="form-control"
+                     value="{{ player.last_name if player else '' }}">
+            </div>
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold">Phone Number</label>
@@ -37,7 +47,7 @@
             <button type="submit" class="btn btn-warning flex-fill">
               <i class="bi bi-check-circle me-1"></i>{{ 'Save Changes' if player else 'Add Player' }}
             </button>
-            <a href="{{ url_for('players.players') }}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{{ url_for('players.players', lid=league.id) }}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
       </div>

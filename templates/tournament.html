@@ -97,12 +97,16 @@
     <div class="card shadow-sm mb-3">
       <div class="card-header fw-semibold"><i class="bi bi-person-plus-fill me-2"></i>Quick Add New Player</div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('tournaments.quick_add_player', tid=t.id) }}" class="d-flex gap-2">
-          <input type="text" name="new_player_name" class="form-control"
-                 placeholder="Type player name…" required>
-          <button class="btn btn-success text-nowrap">Add</button>
+        <form method="post" action="{{ url_for('tournaments.quick_add_player', tid=t.id) }}">
+          <div class="d-flex gap-2 mb-2">
+            <input type="text" name="first_name" class="form-control"
+                   placeholder="First name" required>
+            <input type="text" name="last_name" class="form-control"
+                   placeholder="Last name">
+            <button class="btn btn-success text-nowrap">Add</button>
+          </div>
         </form>
-        <div class="form-text mt-1">Creates a new player profile and adds them instantly.</div>
+        <div class="form-text">Creates a new player profile and adds them instantly.</div>
       </div>
     </div>
 
@@ -110,16 +114,17 @@
     <div class="card shadow-sm mb-3">
       <div class="card-header fw-semibold"><i class="bi bi-person-plus me-2"></i>Add from Registry</div>
       <div class="card-body">
-        <form method="post" action="{{ url_for('tournaments.add_player', tid=t.id) }}" class="d-flex gap-2">
-          <select name="profile_id" class="form-select" required>
-            <option value="" disabled selected>Select a player…</option>
-            {% for p in all_profiles %}
-              {% if p.id not in enrolled_ids %}
-              <option value="{{ p.id }}">{{ p.name }}</option>
-              {% endif %}
-            {% endfor %}
-          </select>
-          <button class="btn btn-warning text-nowrap">Add</button>
+        <form method="post" action="{{ url_for('tournaments.add_player', tid=t.id) }}" id="registry-form">
+          <input type="hidden" name="profile_id" id="registry-pid" required>
+          <div class="d-flex gap-2">
+            <div class="flex-fill position-relative">
+              <input type="text" class="form-control" id="registry-search"
+                     placeholder="Search by name or ID…" autocomplete="off">
+              <div class="list-group position-absolute w-100 shadow-sm" id="registry-results"
+                   style="z-index:999; max-height:240px; overflow-y:auto; display:none"></div>
+            </div>
+            <button class="btn btn-warning text-nowrap" id="registry-btn" disabled>Add</button>
+          </div>
         </form>
       </div>
     </div>
@@ -164,13 +169,14 @@
         <li class="list-group-item d-flex justify-content-between align-items-center">
           <div>
             <i class="bi bi-person-circle me-2 text-muted"></i>
-            <strong>{{ part.profile.name }}</strong>
+            <strong>{{ part.profile.display_name }}</strong>
+            <span class="text-muted small ms-1">#{{ part.profile.id }}</span>
             {% if part.profile.phone %}
               <span class="text-muted small ms-2"><i class="bi bi-telephone me-1"></i>{{ part.profile.phone }}</span>
             {% endif %}
           </div>
           <form method="post" action="{{ url_for('tournaments.remove_player', tid=t.id, part_id=part.id) }}"
-                onsubmit="return confirm('Remove {{ part.profile.name }} from this tournament?')">
+                onsubmit="return confirm('Remove {{ part.profile.full_name }} from this tournament?')">
             <button type="submit" class="btn btn-sm btn-outline-danger py-0">
               <i class="bi bi-x-lg"></i>
             </button>
@@ -183,4 +189,61 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const profiles = [
+    {% for p in all_profiles if p.id not in enrolled_ids %}
+    { id: {{ p.id }}, first: {{ p.first_name|default('', true)|tojson }}, last: {{ p.last_name|default('', true)|tojson }}, label: {{ p.search_label|tojson }} },
+    {% endfor %}
+  ];
+
+  const input = document.getElementById('registry-search');
+  const results = document.getElementById('registry-results');
+  const hidden = document.getElementById('registry-pid');
+  const btn = document.getElementById('registry-btn');
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    hidden.value = '';
+    btn.disabled = true;
+    if (!q) { results.style.display = 'none'; return; }
+
+    const matches = profiles.filter(p => {
+      const full = (p.first + ' ' + p.last).toLowerCase();
+      return p.first.toLowerCase().includes(q)
+          || p.last.toLowerCase().includes(q)
+          || full.includes(q)
+          || ('#' + p.id).includes(q);
+    });
+
+    if (!matches.length) {
+      results.innerHTML = '<div class="list-group-item text-muted small">No matches</div>';
+      results.style.display = 'block';
+      return;
+    }
+
+    results.innerHTML = matches.slice(0, 20).map(p =>
+      '<button type="button" class="list-group-item list-group-item-action py-1" data-pid="' + p.id + '">' +
+        p.label + '</button>'
+    ).join('');
+    results.style.display = 'block';
+  });
+
+  results.addEventListener('click', function(e) {
+    const item = e.target.closest('[data-pid]');
+    if (!item) return;
+    hidden.value = item.dataset.pid;
+    input.value = item.textContent.trim();
+    results.style.display = 'none';
+    btn.disabled = false;
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('#registry-form')) results.style.display = 'none';
+  });
+})();
+</script>
 {% endblock %}

@@ -236,9 +236,9 @@
   {% if t.champion %}
   {% set payouts = t.prize_payouts %}
   <div class="champion-banner">
-    🏆 Champion: {{ t.champion.name }}{% if payouts %} — ${{ payouts[0].amount }}{% endif %}
+    🏆 Champion: {{ t.champion.full_name }}{% if payouts %} — ${{ payouts[0].amount }}{% endif %}
     {% if t.runner_up %}
-    <div class="runner-up">🥈 Runner-up: {{ t.runner_up.name }}{% if payouts|length > 1 %} — ${{ payouts[1].amount }}{% endif %}</div>
+    <div class="runner-up">🥈 Runner-up: {{ t.runner_up.full_name }}{% if payouts|length > 1 %} — ${{ payouts[1].amount }}{% endif %}</div>
     {% endif %}
     {% if payouts|length > 2 %}
     <div class="runner-up" style="font-size:0.8rem">
@@ -267,7 +267,7 @@
         {% elif match.winner_id == match.player1_id %}
           <span style="color:#198754;font-size:0.75rem">✔</span>
         {% endif %}
-        <span class="player-name">{{ p1.name }}</span>
+        <span class="player-name">{{ p1.display_name }}</span>
       {% else %}
         <span class="bye-text">BYE</span>
       {% endif %}
@@ -286,7 +286,7 @@
         {% elif match.winner_id == match.player2_id %}
           <span style="color:#198754;font-size:0.75rem">✔</span>
         {% endif %}
-        <span class="player-name">{{ p2.name }}</span>
+        <span class="player-name">{{ p2.display_name }}</span>
       {% else %}
         <span class="bye-text">BYE</span>
       {% endif %}

@@ -4,7 +4,10 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-md-7 col-lg-6">
-    <h2 class="mb-4"><i class="bi bi-trophy me-2 text-warning"></i>New Tournament</h2>
+    <h2 class="mb-3"><i class="bi bi-trophy me-2 text-warning"></i>New Tournament</h2>
+    <div class="text-muted small mb-3">
+      <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a>
+    </div>
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <form method="post" id="tourneyForm">
@@ -176,7 +179,7 @@
             <button type="submit" class="btn btn-warning flex-fill fw-bold">
               <i class="bi bi-plus-circle me-1"></i>Create Tournament
             </button>
-            <a href="{{ url_for('tournaments.index') }}" class="btn btn-outline-secondary">Cancel</a>
+            <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}" class="btn btn-outline-secondary">Cancel</a>
           </div>
         </form>
       </div>

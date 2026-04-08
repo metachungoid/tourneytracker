@@ -20,6 +20,15 @@ class Admin(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='admin')
+
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
+
+    @property
+    def is_manager(self):
+        return self.role == 'manager'
 
     def set_password(self, pw):
         self.password_hash = generate_password_hash(pw)
@@ -28,18 +37,81 @@ class Admin(db.Model, UserMixin):
         return check_password_hash(self.password_hash, pw)
 
 
+class League(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    owner = db.relationship('Admin', backref='leagues')
+    tournaments = db.relationship('Tournament', backref='league', lazy=True)
+    players = db.relationship('PlayerProfile', backref='league', lazy=True)
+
+    def can_manage(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        if self.owner_id == user.id:
+            return True
+        return ManagerShare.query.filter_by(
+            league_id=self.id, delegate_id=user.id
+        ).first() is not None
+
+
+class ManagerShare(db.Model):
+    """Grants delegate_id access to all tournaments in a league."""
+    id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)  # legacy, kept for migration
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
+    delegate_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    __table_args__ = (db.UniqueConstraint('league_id', 'delegate_id'),)
+
+    league = db.relationship('League', backref='shares')
+    delegate = db.relationship('Admin', foreign_keys=[delegate_id], backref='shares_received')
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Admin, int(user_id))
 
 
+def get_user_leagues(user):
+    """All leagues a user can access (owns or delegated)."""
+    if user.is_admin:
+        return League.query.order_by(League.name).all()
+    owned = League.query.filter_by(owner_id=user.id)
+    shared_ids = [s.league_id for s in ManagerShare.query.filter_by(delegate_id=user.id).all()]
+    if shared_ids:
+        return owned.union(League.query.filter(League.id.in_(shared_ids))).order_by(League.name).all()
+    return owned.order_by(League.name).all()
+
+
 class PlayerProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False, default='')  # legacy, kept for migration
+    first_name = db.Column(db.String(50), nullable=True)
+    last_name = db.Column(db.String(50), nullable=True)
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
     phone = db.Column(db.String(30), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     fargo_rating = db.Column(db.Integer, nullable=True)
     participations = db.relationship('Participant', backref='profile', lazy=True)
+
+    @property
+    def full_name(self):
+        if self.first_name and self.last_name:
+            return f'{self.first_name} {self.last_name}'
+        return self.first_name or self.last_name or self.name or ''
+
+    @property
+    def display_name(self):
+        """First name + last initial for bracket display."""
+        if self.first_name and self.last_name:
+            return f'{self.first_name} {self.last_name[0]}.'
+        return self.full_name
+
+    @property
+    def search_label(self):
+        return f'{self.display_name} #{self.id}'
 
     @property
     def tournaments_entered(self):
@@ -67,6 +139,9 @@ class PlayerProfile(db.Model):
 class Tournament(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    owner = db.relationship('Admin', backref='tournaments')
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
     buyin = db.Column(db.Integer, nullable=False, default=10)
     status = db.Column(db.String(20), default='open')   # open | bracket | complete
     tournament_date = db.Column(db.Date, nullable=True)
@@ -93,6 +168,15 @@ class Tournament(db.Model):
     @property
     def is_double(self):
         return self.bracket_type == 'double'
+
+    def can_manage(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        if self.league:
+            return self.league.can_manage(user)
+        return self.owner_id == user.id
 
     @property
     def num_players(self):

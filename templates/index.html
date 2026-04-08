@@ -5,7 +5,7 @@
 <div class="d-flex align-items-center justify-content-between mb-4">
   <h2 class="mb-0"><i class="bi bi-trophy-fill text-warning me-2"></i>Tournaments</h2>
   {% if current_user.is_authenticated %}
-  <a href="{{ url_for('tournaments.new_tournament') }}" class="btn btn-warning">
+  <a href="{{ url_for('leagues.league_list') }}" class="btn btn-warning">
     <i class="bi bi-plus-circle me-1"></i>New Tournament
   </a>
   {% endif %}
@@ -29,6 +29,10 @@
           <i class="bi bi-calendar3 me-1"></i>
           {{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else 'Date TBD' }}
           &nbsp;<span class="badge bg-secondary" style="font-size:0.65rem">{{ t.format_label }}</span>
+          <span class="badge {% if t.is_double %}bg-info text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem">{{ 'Double Elim' if t.is_double else 'Single Elim' }}</span>
+          {% if t.league %}
+            <span class="badge bg-dark" style="font-size:0.65rem">{{ t.league.name }}</span>
+          {% endif %}
         </p>
         <p class="text-muted small mb-2">
           <i class="bi bi-people-fill me-1"></i>{{ t.num_players }} players &nbsp;|&nbsp;
@@ -43,7 +47,7 @@
         {% endif %}
       </div>
       <div class="card-footer d-flex gap-2">
-        {% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated and t.id in manageable_ids %}
           {% if t.status == 'open' %}
             <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
               <i class="bi bi-pencil me-1"></i>Manage
@@ -74,7 +78,7 @@
 {% else %}
 <p class="text-muted mb-5">No upcoming tournaments.
   {% if current_user.is_authenticated %}
-    <a href="{{ url_for('tournaments.new_tournament') }}">Create one!</a>
+    <a href="{{ url_for('leagues.league_list') }}">Create one!</a>
   {% endif %}
 </p>
 {% endif %}
@@ -95,6 +99,10 @@
           <i class="bi bi-calendar3 me-1"></i>
           {{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else '—' }}
           &nbsp;<span class="badge bg-secondary" style="font-size:0.65rem">{{ t.format_label }}</span>
+          <span class="badge {% if t.is_double %}bg-info text-dark{% else %}bg-secondary{% endif %}" style="font-size:0.65rem">{{ 'Double Elim' if t.is_double else 'Single Elim' }}</span>
+          {% if t.league %}
+            <span class="badge bg-dark" style="font-size:0.65rem">{{ t.league.name }}</span>
+          {% endif %}
         </p>
         <p class="text-muted small mb-2">
           <i class="bi bi-people-fill me-1"></i>{{ t.num_players }} players &nbsp;|&nbsp;
@@ -102,7 +110,7 @@
         </p>
         {% if t.champion %}
         <p class="mb-0 fw-semibold text-warning">
-          <i class="bi bi-trophy-fill me-1"></i>{{ t.champion.name }}
+          <i class="bi bi-trophy-fill me-1"></i>{{ t.champion.full_name }}
           <span class="text-muted fw-normal small">&nbsp;— ${{ t.prize_pool }}</span>
         </p>
         {% endif %}
@@ -111,7 +119,7 @@
         <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-sm btn-outline-secondary flex-fill">
           <i class="bi bi-diagram-3 me-1"></i>View Bracket
         </a>
-        {% if current_user.is_authenticated %}
+        {% if current_user.is_authenticated and t.id in manageable_ids %}
         <form method="post" action="{{ url_for('tournaments.delete_tournament', tid=t.id) }}"
               onsubmit="return confirm('Delete {{ t.name }}?')">
           <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>

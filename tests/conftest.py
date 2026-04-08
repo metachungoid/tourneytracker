@@ -1,6 +1,6 @@
 import pytest
 from app import app as flask_app, db as _db
-from models import Tournament, PlayerProfile, Participant, Match
+from models import Tournament, PlayerProfile, Participant, Match, Admin, League
 
 
 @pytest.fixture(scope='session')
@@ -26,20 +26,40 @@ def clean_db(app):
 # or use the `app` fixture to enter context before calling)
 # ---------------------------------------------------------------------------
 
+def _get_or_create_test_league():
+    """Return a test league, creating it (with a test admin) if needed."""
+    league = League.query.first()
+    if league:
+        return league
+    admin = Admin.query.filter_by(username='testadmin').first()
+    if not admin:
+        admin = Admin(username='testadmin', role='admin')
+        admin.set_password('test123')
+        _db.session.add(admin)
+        _db.session.flush()
+    league = League(name='Test League', owner_id=admin.id)
+    _db.session.add(league)
+    _db.session.flush()
+    return league
+
+
 def make_tournament(n, bracket_type='single', seeding='random', race_to=1):
     """Create a tournament with n players and generate the bracket.
     Must be called inside an app context.  Returns the Tournament object
     (refreshed from the DB so all relationships are loaded).
     """
     from bracket.generators import generate_bracket
+    league = _get_or_create_test_league()
     t = Tournament(
         name='Test', buyin=10, bracket_type=bracket_type,
         seeding=seeding, race_to=race_to, lb_race_to=race_to,
+        owner_id=league.owner_id, league_id=league.id,
     )
     _db.session.add(t)
     _db.session.flush()
     for i in range(n):
-        p = PlayerProfile(name=f'P{i + 1}')
+        p = PlayerProfile(first_name='Player', last_name=f'{i + 1}',
+                          league_id=league.id)
         _db.session.add(p)
         _db.session.flush()
         _db.session.add(Participant(tournament_id=t.id, profile_id=p.id))

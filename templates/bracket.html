@@ -25,8 +25,8 @@
           <span class="score-badge score-lose">{{ match.score1 or 0 }}</span>
         {% endif %}
       {% endif %}
-      <span class="player-name">{{ p1.name }}{% if t.fargo_rated and p1.fargo_rating %} <span class="fargo-badge">{{ p1.fargo_rating }}</span>{% endif %}</span>
-      {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
+      <span class="player-name">{{ p1.display_name }}{% if t.fargo_rated and p1.fargo_rating %} <span class="fargo-badge">{{ p1.fargo_rating }}</span>{% endif %}</span>
+      {% if show_controls and can_manage and not match.winner_id and p1 and p2 %}
         {% if effective_race > 1 %}
           <form method="post"
                 action="{{ url_for('tournaments.add_score', tid=t.id, mid=match.id, player_num=1) }}"
@@ -66,8 +66,8 @@
           <span class="score-badge score-lose">{{ match.score2 or 0 }}</span>
         {% endif %}
       {% endif %}
-      <span class="player-name">{{ p2.name }}{% if t.fargo_rated and p2.fargo_rating %} <span class="fargo-badge">{{ p2.fargo_rating }}</span>{% endif %}</span>
-      {% if show_controls and current_user.is_authenticated and not match.winner_id and p1 and p2 %}
+      <span class="player-name">{{ p2.display_name }}{% if t.fargo_rated and p2.fargo_rating %} <span class="fargo-badge">{{ p2.fargo_rating }}</span>{% endif %}</span>
+      {% if show_controls and can_manage and not match.winner_id and p1 and p2 %}
         {% if effective_race > 1 %}
           <form method="post"
                 action="{{ url_for('tournaments.add_score', tid=t.id, mid=match.id, player_num=2) }}"
@@ -88,7 +88,7 @@
   </div>
 
   {# ── Change winner (admin misclick correction) ── #}
-  {% if show_controls and current_user.is_authenticated and match.winner_id and p1 and p2 %}
+  {% if show_controls and can_manage and match.winner_id and p1 and p2 %}
   <div class="match-change-bar">
     <form method="post"
           action="{{ url_for('tournaments.clear_winner', tid=t.id, mid=match.id) }}"
@@ -200,12 +200,12 @@
 <div class="alert alert-warning text-center mb-4">
   {% set payouts = t.prize_payouts %}
   <div class="fs-5 fw-bold">
-    <i class="bi bi-trophy-fill me-2"></i>Champion: {{ t.champion.name }}
+    <i class="bi bi-trophy-fill me-2"></i>Champion: {{ t.champion.full_name }}
     {% if payouts %}<span class="fs-6 fw-normal ms-2">— ${{ payouts[0].amount }}</span>{% endif %}
   </div>
   {% if t.runner_up %}
   <div class="mt-1">
-    <i class="bi bi-award me-1"></i>Runner-up: {{ t.runner_up.name }}
+    <i class="bi bi-award me-1"></i>Runner-up: {{ t.runner_up.full_name }}
     {% if payouts|length > 1 %}<span class="text-muted fs-6 ms-1">— ${{ payouts[1].amount }}</span>{% endif %}
   </div>
   {% endif %}
@@ -217,8 +217,8 @@
 </div>
 {% endif %}
 
-<!-- Admin actions -->
-{% if current_user.is_authenticated %}
+<!-- Actions -->
+{% if can_manage %}
 <div class="d-flex gap-2 mb-4 flex-wrap">
   <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i>Back to Roster
@@ -342,7 +342,7 @@
 })();
 </script>
 {% endif %}
-{% if current_user.is_authenticated and t.status != 'complete' %}
+{% if can_manage and t.status != 'complete' %}
 <script>
 // Submit score/winner forms via fetch, then reload preserving scroll position
 document.addEventListener('submit', function(e) {

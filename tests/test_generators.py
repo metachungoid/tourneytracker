@@ -126,10 +126,13 @@ def test_single_too_few_players(app):
     from models import Participant, PlayerProfile
     from app import db
     with app.app_context():
-        t = Tournament(name='T', buyin=10, bracket_type='single')
+        from tests.conftest import _get_or_create_test_league
+        league = _get_or_create_test_league()
+        t = Tournament(name='T', buyin=10, bracket_type='single',
+                       owner_id=league.owner_id, league_id=league.id)
         db.session.add(t)
         db.session.flush()
-        p = PlayerProfile(name='Solo')
+        p = PlayerProfile(first_name='Solo', last_name='', league_id=league.id)
         db.session.add(p)
         db.session.flush()
         db.session.add(Participant(tournament_id=t.id, profile_id=p.id))

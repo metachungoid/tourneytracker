@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% block title %}{{ league.name }} — TourneyTracker{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+  <h2 class="mb-0"><i class="bi bi-collection-fill text-warning me-2"></i>{{ league.name }}</h2>
+  <a href="{{ url_for('leagues.edit_league', lid=league.id) }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-pencil me-1"></i>Edit
+  </a>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-sm-3">
+    <a href="#league-tournaments" class="text-decoration-none">
+      <div class="card text-center border-0 bg-dark text-white stat-card">
+        <div class="card-body py-3">
+          <i class="bi bi-trophy text-warning d-block mb-1" style="font-size:1.2rem"></i>
+          <div class="fs-2 fw-bold text-warning">{{ tournaments|length }}</div>
+          <div class="small text-muted">Tournaments</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-sm-3">
+    <a href="{{ url_for('players.players', lid=league.id) }}" class="text-decoration-none">
+      <div class="card text-center border-0 bg-dark text-white stat-card">
+        <div class="card-body py-3">
+          <i class="bi bi-people text-success d-block mb-1" style="font-size:1.2rem"></i>
+          <div class="fs-2 fw-bold text-success">{{ player_count }}</div>
+          <div class="small text-muted">Registered Players</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="d-flex gap-2 mb-4 flex-wrap">
+  <a href="{{ url_for('tournaments.new_tournament', lid=league.id) }}" class="btn btn-warning">
+    <i class="bi bi-plus-circle me-1"></i>New Tournament
+  </a>
+  <a href="{{ url_for('players.players', lid=league.id) }}" class="btn btn-outline-secondary">
+    <i class="bi bi-people me-1"></i>Player Registry
+  </a>
+  <a href="{{ url_for('rankings.league_rankings', lid=league.id) }}" class="btn btn-outline-secondary">
+    <i class="bi bi-bar-chart me-1"></i>Rankings
+  </a>
+</div>
+
+<!-- Tournaments -->
+<h4 class="mb-3" id="league-tournaments"><i class="bi bi-trophy me-2 text-info"></i>Tournaments</h4>
+{% if tournaments %}
+<div class="row g-3">
+  {% for t in tournaments %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100 shadow-sm {% if t.status == 'complete' %}opacity-75{% endif %}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 class="card-title mb-1">{{ t.name }}</h5>
+          <span class="badge {% if t.status == 'complete' %}bg-secondary{% elif t.status == 'bracket' %}bg-primary{% else %}bg-success{% endif %}">
+            {{ t.status|capitalize }}
+          </span>
+        </div>
+        <p class="text-muted small mb-1">
+          <i class="bi bi-calendar3 me-1"></i>
+          {{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else 'Date TBD' }}
+          &nbsp;<span class="badge bg-secondary" style="font-size:0.65rem">{{ t.format_label }}</span>
+        </p>
+        <p class="text-muted small mb-2">
+          <i class="bi bi-people-fill me-1"></i>{{ t.num_players }} players
+        </p>
+        {% if t.champion %}
+        <p class="mb-0 fw-semibold text-warning">
+          <i class="bi bi-trophy-fill me-1"></i>{{ t.champion.full_name }}
+        </p>
+        {% endif %}
+      </div>
+      <div class="card-footer d-flex gap-2">
+        {% if t.status == 'open' %}
+          <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
+            <i class="bi bi-pencil me-1"></i>Manage
+          </a>
+        {% else %}
+          <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
+            <i class="bi bi-diagram-3 me-1"></i>Bracket
+          </a>
+        {% endif %}
+        <form method="post" action="{{ url_for('tournaments.delete_tournament', tid=t.id) }}"
+              onsubmit="return confirm('Delete {{ t.name }}?')">
+          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No tournaments yet.
+  <a href="{{ url_for('tournaments.new_tournament', lid=league.id) }}">Create your first!</a>
+</p>
+{% endif %}
+
+<!-- Delete League -->
+{% if not tournaments and player_count == 0 %}
+<hr class="mt-5">
+<div class="text-end">
+  <form method="post" action="{{ url_for('leagues.delete_league', lid=league.id) }}"
+        onsubmit="return confirm('Delete league {{ league.name }}? This cannot be undone.')">
+    <button class="btn btn-sm btn-outline-danger">
+      <i class="bi bi-trash me-1"></i>Delete League
+    </button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

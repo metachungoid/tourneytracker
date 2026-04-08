@@ -1,8 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}Rankings — TourneyTracker{% endblock %}
+{% block title %}{% if league %}{{ league.name }} Rankings{% else %}Rankings{% endif %} — TourneyTracker{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-bar-chart-fill text-warning me-2"></i>Player Rankings</h2>
+<h2 class="mb-1"><i class="bi bi-bar-chart-fill text-warning me-2"></i>Player Rankings</h2>
+{% if league %}
+<div class="text-muted small mb-4">
+  <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a>
+</div>
+{% else %}
+<div class="text-muted small mb-4">All leagues</div>
+{% endif %}
 
 {% if players %}
 <div class="table-responsive">
@@ -33,7 +40,7 @@
           {% endif %}
         </td>
         <td>
-          <div class="fw-semibold">{{ p.name }}</div>
+          <div class="fw-semibold">{{ p.full_name }}</div>
           {% if p.email %}<div class="small text-muted">{{ p.email }}</div>{% endif %}
         </td>
         <td class="text-center">
@@ -64,8 +71,8 @@
 <div class="text-center py-5 text-muted">
   <i class="bi bi-bar-chart display-1"></i>
   <p class="mt-3 fs-5">No players registered yet.</p>
-  {% if current_user.is_authenticated %}
-    <a href="{{ url_for('players.add_player_profile') }}" class="btn btn-warning">Add Players</a>
+  {% if current_user.is_authenticated and league %}
+    <a href="{{ url_for('players.add_player_profile', lid=league.id) }}" class="btn btn-warning">Add Players</a>
   {% endif %}
 </div>
 {% endif %}

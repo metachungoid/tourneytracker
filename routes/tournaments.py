@@ -1,14 +1,20 @@
 import json
 import math
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import login_required, current_user
 from app import db
-from models import Tournament, Match, PlayerProfile, Participant
+from models import Tournament, Match, PlayerProfile, Participant, League, ManagerShare
 from bracket.helpers import _set_winner, advance_winner, _clear_forward
 from bracket.generators import generate_bracket
 
 bp = Blueprint('tournaments', __name__)
+
+
+def _check_access(t):
+    """Abort 403 if current_user cannot manage this tournament."""
+    if not t.can_manage(current_user):
+        abort(403)
 
 
 @bp.route('/')
@@ -21,12 +27,32 @@ def index():
         Tournament.tournament_date.desc().nullslast(), Tournament.id.desc()
     ).all()
 
-    return render_template('index.html', upcoming=upcoming, past=past)
+    # Precompute manageable tournament IDs to avoid N+1 ManagerShare queries
+    manageable_ids = set()
+    if current_user.is_authenticated:
+        all_tournaments = upcoming + past
+        if current_user.is_admin:
+            manageable_ids = {t.id for t in all_tournaments}
+        else:
+            # Leagues the user owns
+            owned_league_ids = {lg.id for lg in League.query.filter_by(owner_id=current_user.id).all()}
+            # Leagues delegated to the user
+            delegate_league_ids = {s.league_id for s in ManagerShare.query.filter_by(
+                delegate_id=current_user.id).all() if s.league_id}
+            all_league_ids = owned_league_ids | delegate_league_ids
+            manageable_ids = {t.id for t in all_tournaments
+                             if t.league_id in all_league_ids}
+
+    return render_template('index.html', upcoming=upcoming, past=past,
+                           manageable_ids=manageable_ids)
 
 
-@bp.route('/tournament/new', methods=['GET', 'POST'])
+@bp.route('/league/<int:lid>/tournament/new', methods=['GET', 'POST'])
 @login_required
-def new_tournament():
+def new_tournament(lid):
+    league = League.query.get_or_404(lid)
+    if not league.can_manage(current_user):
+        abort(403)
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         buyin = int(request.form.get('buyin', 10))
@@ -55,7 +81,7 @@ def new_tournament():
                 pass
         if not name:
             flash('Tournament name is required.', 'danger')
-            return redirect(url_for('tournaments.new_tournament'))
+            return redirect(url_for('tournaments.new_tournament', lid=lid))
 
         # Parse dynamic prize splits: split_type_N, split_val_N
         ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th']
@@ -85,7 +111,7 @@ def new_tournament():
         total_pct = sum(s['pct'] for s in splits if s.get('type') == 'pct')
         if total_pct > 100:
             flash(f'Percentage split total is {total_pct}% — cannot exceed 100%.', 'danger')
-            return redirect(url_for('tournaments.new_tournament'))
+            return redirect(url_for('tournaments.new_tournament', lid=lid))
 
         t = Tournament(
             name=name, buyin=buyin, table_fee=table_fee,
@@ -95,18 +121,22 @@ def new_tournament():
             lb_format=lb_fmt, lb_race_to=lb_race_to,
             prize_splits=json.dumps(splits),
             tournament_date=t_date,
+            owner_id=current_user.id,
+            league_id=lid,
         )
         db.session.add(t)
         db.session.commit()
         return redirect(url_for('tournaments.tournament', tid=t.id))
-    return render_template('new_tournament.html')
+    return render_template('new_tournament.html', league=league)
 
 
 @bp.route('/tournament/<int:tid>')
 @login_required
 def tournament(tid):
     t = Tournament.query.get_or_404(tid)
-    all_profiles = PlayerProfile.query.order_by(PlayerProfile.name).all()
+    _check_access(t)
+    all_profiles = PlayerProfile.query.filter_by(league_id=t.league_id).order_by(
+        PlayerProfile.first_name, PlayerProfile.last_name).all()
     enrolled_ids = {p.profile_id for p in t.participants}
     return render_template('tournament.html', t=t, all_profiles=all_profiles,
                            enrolled_ids=enrolled_ids)
@@ -116,6 +146,7 @@ def tournament(tid):
 @login_required
 def add_player(tid):
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     if t.status != 'open':
         flash('Cannot add players after bracket is generated.', 'warning')
         return redirect(url_for('tournaments.tournament', tid=tid))
@@ -132,19 +163,21 @@ def add_player(tid):
 def quick_add_player(tid):
     """Create a new player profile and immediately add them to the tournament."""
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     if t.status != 'open':
         flash('Cannot add players after bracket is generated.', 'warning')
         return redirect(url_for('tournaments.tournament', tid=tid))
-    name = request.form.get('new_player_name', '').strip()
-    if not name:
-        flash('Player name is required.', 'danger')
+    first = request.form.get('first_name', '').strip()
+    last = request.form.get('last_name', '').strip()
+    if not first:
+        flash('First name is required.', 'danger')
         return redirect(url_for('tournaments.tournament', tid=tid))
-    profile = PlayerProfile(name=name)
+    profile = PlayerProfile(first_name=first, last_name=last or '', league_id=t.league_id)
     db.session.add(profile)
     db.session.flush()
     db.session.add(Participant(tournament_id=tid, profile_id=profile.id))
     db.session.commit()
-    flash(f'{name} created and added to the tournament.', 'success')
+    flash(f'{profile.full_name} created and added to the tournament.', 'success')
     return redirect(url_for('tournaments.tournament', tid=tid))
 
 
@@ -152,11 +185,12 @@ def quick_add_player(tid):
 @login_required
 def remove_player(tid, part_id):
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     if t.status != 'open':
         flash('Cannot remove players after bracket is generated.', 'warning')
         return redirect(url_for('tournaments.tournament', tid=tid))
     p = Participant.query.get_or_404(part_id)
-    name = p.profile.name
+    name = p.profile.full_name
     db.session.delete(p)
     db.session.commit()
     flash(f'{name} removed from tournament.', 'info')
@@ -167,6 +201,7 @@ def remove_player(tid, part_id):
 @login_required
 def generate(tid):
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     if t.num_players < 2:
         flash('Need at least 2 players to generate a bracket.', 'danger')
         return redirect(url_for('tournaments.tournament', tid=tid))
@@ -194,10 +229,12 @@ def _load_bracket_context(t):
             lb_rounds[r] = [m for m in lb_matches if m.round_num == r]
         gf_match = next((m for m in all_matches if m.bracket == 'GF'), None)
 
+    can_manage = t.can_manage(current_user)
+
     return dict(
         t=t, wr_rounds=wr_rounds, num_wr_rounds=num_wr_rounds,
         lb_rounds=lb_rounds, num_lb_rounds=num_lb_rounds,
-        gf_match=gf_match,
+        gf_match=gf_match, can_manage=can_manage,
     )
 
 
@@ -205,7 +242,7 @@ def _load_bracket_context(t):
 def bracket(tid):
     t = Tournament.query.get_or_404(tid)
     if t.status == 'open':
-        if current_user.is_authenticated:
+        if current_user.is_authenticated and t.can_manage(current_user):
             return redirect(url_for('tournaments.tournament', tid=tid))
         flash('Bracket not generated yet.', 'info')
         return redirect(url_for('tournaments.index'))
@@ -235,9 +272,10 @@ def bracket_status(tid):
 @bp.route('/tournament/<int:tid>/set_winner/<int:mid>/<int:part_id>', methods=['POST'])
 @login_required
 def set_winner(tid, mid, part_id):
+    t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     match = Match.query.get_or_404(mid)
     part = Participant.query.get_or_404(part_id)
-    t = Tournament.query.get_or_404(tid)
     _set_winner(match, part)
     advance_winner(match, t)
     db.session.commit()
@@ -248,8 +286,9 @@ def set_winner(tid, mid, part_id):
 @login_required
 def add_score(tid, mid, player_num):
     """Increment score for race-to matches."""
-    match = Match.query.get_or_404(mid)
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
+    match = Match.query.get_or_404(mid)
     if match.winner_id:
         return redirect(url_for('tournaments.bracket', tid=tid))
 
@@ -274,6 +313,8 @@ def add_score(tid, mid, player_num):
 @login_required
 def clear_winner(tid, mid):
     """Undo a winner decision and all downstream effects."""
+    t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     match = Match.query.get_or_404(mid)
     _clear_forward(match)
     db.session.commit()
@@ -285,6 +326,7 @@ def clear_winner(tid, mid):
 @login_required
 def reset_tournament(tid):
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     Match.query.filter_by(tournament_id=tid).delete()
     t.status = 'open'
     t.champion_id = None
@@ -297,6 +339,7 @@ def reset_tournament(tid):
 @login_required
 def delete_tournament(tid):
     t = Tournament.query.get_or_404(tid)
+    _check_access(t)
     db.session.delete(t)
     db.session.commit()
     return redirect(url_for('tournaments.index'))

@@ -31,18 +31,25 @@ def _get_slots(tournament):
     parts = list(tournament.participants)
 
     if (tournament.seeding or 'random') == 'rankings':
-        champ_counts = dict(db.session.query(
+        champ_q = db.session.query(
             Tournament.champion_id, db.func.count()
         ).filter(
             Tournament.id != tournament.id,
             Tournament.champion_id.isnot(None),
-        ).group_by(Tournament.champion_id).all())
-        win_counts = dict(db.session.query(
+        )
+        win_q = db.session.query(
             Match.winner_profile_id, db.func.count()
         ).filter(
             Match.tournament_id != tournament.id,
             Match.winner_profile_id.isnot(None),
-        ).group_by(Match.winner_profile_id).all())
+        )
+        # Scope to same league if tournament has one
+        if tournament.league_id:
+            champ_q = champ_q.filter(Tournament.league_id == tournament.league_id)
+            win_q = win_q.join(Tournament, Match.tournament_id == Tournament.id).filter(
+                Tournament.league_id == tournament.league_id)
+        champ_counts = dict(champ_q.group_by(Tournament.champion_id).all())
+        win_counts = dict(win_q.group_by(Match.winner_profile_id).all())
         return sorted(parts, key=lambda p: (
             -champ_counts.get(p.profile_id, 0),
             -win_counts.get(p.profile_id, 0),

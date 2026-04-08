@@ -25,15 +25,33 @@
         </li>
         {% if current_user.is_authenticated %}
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('players.players') }}">
+          <a class="nav-link" href="{{ url_for('leagues.league_list') }}">
+            <i class="bi bi-collection me-1"></i>My Leagues
+          </a>
+        </li>
+        {% if user_leagues|length == 1 %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('players.players', lid=user_leagues[0].id) }}">
             <i class="bi bi-people-fill me-1"></i>Players
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="{{ url_for('tournaments.new_tournament') }}">
+          <a class="nav-link" href="{{ url_for('tournaments.new_tournament', lid=user_leagues[0].id) }}">
             <i class="bi bi-plus-circle me-1"></i>New Tournament
           </a>
         </li>
+        {% elif user_leagues|length > 1 %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            <i class="bi bi-plus-circle me-1"></i>New Tournament
+          </a>
+          <ul class="dropdown-menu dropdown-menu-dark">
+            {% for lg in user_leagues %}
+            <li><a class="dropdown-item" href="{{ url_for('tournaments.new_tournament', lid=lg.id) }}">{{ lg.name }}</a></li>
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
         {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto">
@@ -41,11 +59,21 @@
         <li class="nav-item">
           <span class="nav-link text-muted">
             <i class="bi bi-person-fill me-1"></i>{{ current_user.username }}
+            <span class="badge {% if current_user.is_admin %}bg-danger{% else %}bg-info{% endif %} ms-1" style="font-size:0.6rem">
+              {{ current_user.role|capitalize }}
+            </span>
           </span>
         </li>
+        {% if current_user.is_admin %}
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('admin.admin_panel') }}">
             <i class="bi bi-shield-lock me-1"></i>Admin
+          </a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('settings.settings') }}">
+            <i class="bi bi-gear me-1"></i>Settings
           </a>
         </li>
         <li class="nav-item">
@@ -56,7 +84,7 @@
         {% else %}
         <li class="nav-item">
           <a class="nav-link text-warning" href="{{ url_for('auth.login') }}">
-            <i class="bi bi-lock-fill me-1"></i>Admin Login
+            <i class="bi bi-lock-fill me-1"></i>Login
           </a>
         </li>
         {% endif %}

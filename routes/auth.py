@@ -8,14 +8,14 @@ bp = Blueprint('auth', __name__)
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('tournaments.index'))
+        return redirect(url_for('leagues.league_list'))
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
         admin = Admin.query.filter_by(username=username).first()
         if admin and admin.check_password(password):
             login_user(admin, remember=request.form.get('remember') == 'on')
-            return redirect(request.args.get('next') or url_for('tournaments.index'))
+            return redirect(request.args.get('next') or url_for('leagues.league_list'))
         flash('Invalid username or password.', 'danger')
     return render_template('login.html')
 
