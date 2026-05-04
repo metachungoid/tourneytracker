@@ -97,6 +97,18 @@ with app.app_context():
     created_by_id INTEGER REFERENCES user(id),
     created_at TIMESTAMP
 )""",
+        """CREATE TABLE IF NOT EXISTS team_membership (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL REFERENCES team(id),
+    profile_id INTEGER NOT NULL REFERENCES player_profile(id),
+    is_captain BOOLEAN NOT NULL DEFAULT 0,
+    is_co_captain BOOLEAN NOT NULL DEFAULT 0,
+    is_scorekeeper BOOLEAN NOT NULL DEFAULT 0,
+    is_sub BOOLEAN NOT NULL DEFAULT 0,
+    UNIQUE (team_id, profile_id)
+)""",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_team_captain ON team_membership (team_id) WHERE is_captain = 1",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_team_co_captain ON team_membership (team_id) WHERE is_co_captain = 1",
     ]:
         try:
             db.session.execute(db.text(col_sql))

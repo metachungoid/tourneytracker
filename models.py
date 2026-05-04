@@ -460,10 +460,32 @@ class Team(db.Model):
     bar = db.relationship('Bar', foreign_keys=[bar_id], backref='teams')
     league = db.relationship('League', foreign_keys=[league_id], backref='teams')
     creator = db.relationship('User', foreign_keys=[created_by_id])
-    # NOTE: memberships relationship to TeamMembership is omitted here;
-    # Task 2 will add it via a backref on TeamMembership (BarMembership-style pattern).
-    # The forward-reference string 'TeamMembership' fails at mapper-config time
-    # in this codebase when TeamMembership is not yet defined.
+    # memberships backref is added via TeamMembership.team relationship below
+
+
+class TeamMembership(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    profile_id = db.Column(db.Integer, db.ForeignKey('player_profile.id'), nullable=False)
+    is_captain = db.Column(db.Boolean, nullable=False, default=False)
+    is_co_captain = db.Column(db.Boolean, nullable=False, default=False)
+    is_scorekeeper = db.Column(db.Boolean, nullable=False, default=False)
+    is_sub = db.Column(db.Boolean, nullable=False, default=False)
+
+    team = db.relationship(
+        'Team', foreign_keys=[team_id],
+        backref=db.backref('memberships', cascade='all, delete-orphan')
+    )
+    profile = db.relationship('PlayerProfile', foreign_keys=[profile_id],
+                              backref=db.backref('team_memberships', cascade='all'))
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'profile_id', name='uq_team_membership_team_profile'),
+        db.Index('uq_team_captain', 'team_id',
+                 unique=True, sqlite_where=db.text('is_captain = 1')),
+        db.Index('uq_team_co_captain', 'team_id',
+                 unique=True, sqlite_where=db.text('is_co_captain = 1')),
+    )
 
 
 class Participant(db.Model):
