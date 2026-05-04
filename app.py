@@ -83,6 +83,7 @@ with app.app_context():
     UNIQUE (user_id, bar_id)
 )""",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_bar_membership_primary ON bar_membership (bar_id) WHERE is_primary = 1",
+        "ALTER TABLE tournament ADD COLUMN bar_id INTEGER REFERENCES bar(id)",
         """CREATE TABLE IF NOT EXISTS league_sponsorship (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     league_id INTEGER NOT NULL REFERENCES league(id),

@@ -138,6 +138,7 @@ class Tournament(db.Model):
     owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
     owner = db.relationship('Admin', backref='tournaments')
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=True)
     buyin = db.Column(db.Integer, nullable=False, default=10)
     status = db.Column(db.String(20), default='open')   # open | bracket | complete
     tournament_date = db.Column(db.Date, nullable=True)
@@ -154,6 +155,7 @@ class Tournament(db.Model):
     runner_up_id = db.Column(db.Integer, db.ForeignKey('player_profile.id'), nullable=True)
     champion = db.relationship('PlayerProfile', foreign_keys=[champion_id])
     runner_up = db.relationship('PlayerProfile', foreign_keys=[runner_up_id])
+    bar = db.relationship('Bar', foreign_keys=[bar_id], backref='tournaments')
     participants = db.relationship(
         'Participant', backref='tournament', lazy=True, cascade='all, delete-orphan'
     )
@@ -170,8 +172,10 @@ class Tournament(db.Model):
             return False
         if user.is_admin:
             return True
-        if self.league:
+        if self.league_id and self.league:
             return self.league.can_manage(user)
+        if self.bar_id and self.bar:
+            return self.bar.can_manage(user)
         return self.owner_id == user.id
 
     @property
@@ -369,6 +373,23 @@ class Bar(db.Model):
     created_at = db.Column(db.DateTime, nullable=True)
 
     creator = db.relationship('Admin', foreign_keys=[created_by_id])
+
+    def can_manage(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        return BarMembership.query.filter_by(
+            bar_id=self.id, user_id=user.id
+        ).first() is not None
+
+    def can_manage_staff(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        m = BarMembership.query.filter_by(bar_id=self.id, user_id=user.id).first()
+        return bool(m and m.is_primary)
 
 
 class BarMembership(db.Model):
