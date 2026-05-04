@@ -19,6 +19,11 @@ def clean_db(app):
         for table in reversed(_db.metadata.sorted_tables):
             _db.session.execute(table.delete())
         _db.session.commit()
+    # Clear Flask-Login's cached user from the outer app context's g so the
+    # next test's requests go through _load_user() rather than reusing stale state.
+    # (g is app-context-scoped in Flask, so this must run outside any nested context.)
+    from flask import g as flask_g
+    flask_g.pop('_login_user', None)
 
 
 # ---------------------------------------------------------------------------

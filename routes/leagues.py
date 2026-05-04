@@ -23,6 +23,9 @@ def league_list():
 @bp.route('/league/new', methods=['GET', 'POST'])
 @login_required
 def new_league():
+    from auth_helpers import can_create_league
+    if not can_create_league(current_user):
+        abort(403)
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         if not name:
