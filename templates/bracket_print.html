@@ -4,251 +4,467 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ t.name }} — Bracket</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink:        #1a1a1a;
+      --ink-mute:   #595959;
+      --ink-dim:    #8a8a8a;
+      --line:       #d9d9d9;
+      --line-hi:    #1a1a1a;
+      --paper:      #fafaf7;
+      --paper-sunk: #f1f1ec;
+      --accent:     #d4643a;
+      --accent-soft:#f7e7df;
+      --font-sans:  'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-mono:  'Geist Mono', ui-monospace, 'SF Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      background: #f8f9fa;
-      color: #1a1a2e;
-      padding: 1rem;
+      font-family: var(--font-sans);
+      background: var(--paper-sunk);
+      color: var(--ink);
+      padding: 2rem 1.5rem;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.005em;
     }
 
     /* ── Toolbar (hidden on print) ── */
     .toolbar {
+      max-width: 1400px;
+      margin: 0 auto 1.5rem;
       display: flex;
-      gap: 0.75rem;
+      gap: 0.5rem;
       align-items: center;
       padding: 0.75rem 1rem;
-      background: #1a1a2e;
-      color: #fff;
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      position: relative;
       flex-wrap: wrap;
     }
-    .toolbar h6 { margin: 0; flex: 1; font-size: 1rem; }
-    .btn-tool {
-      border: none; border-radius: 6px; padding: 0.4rem 1rem;
-      cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    .toolbar::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--accent);
     }
-    .btn-print { background: #ffc107; color: #1a1a2e; }
-    .btn-download { background: #0dcaf0; color: #1a1a2e; }
-    .btn-back { background: #6c757d; color: #fff; text-decoration: none; }
+    .toolbar__title {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--ink);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      padding-left: 0.5rem;
+    }
+    .toolbar__title::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      display: inline-block;
+      transform: rotate(45deg);
+    }
+    .btn-tool {
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 500;
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      padding: 0.4rem 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 140ms cubic-bezier(0.16, 1, 0.3, 1);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    .btn-tool:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .btn-tool--primary { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+    .btn-tool--primary:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 
     /* ── Printable area ── */
     #bracket-canvas {
-      background: #fff;
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      padding: 2.25rem 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      position: relative;
+    }
+    #bracket-canvas::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0;
+      width: 64px;
+      height: 3px;
+      background: var(--accent);
     }
 
-    /* Header */
+    /* ── Header ── */
     .print-header {
-      text-align: center;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2rem;
+      align-items: end;
+      padding: 0.5rem 0 1.5rem;
+      border-bottom: 1px solid var(--line-hi);
       margin-bottom: 2rem;
-      padding-bottom: 1rem;
-      border-bottom: 3px solid #ffc107;
     }
-    .print-header h1 {
-      font-size: 2rem;
-      font-weight: 800;
-      color: #1a1a2e;
-    }
-    .print-header .meta {
-      color: #555;
-      font-size: 0.9rem;
-      margin-top: 0.4rem;
-      display: flex;
-      justify-content: center;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-    }
-    .meta-pill {
-      background: #1a1a2e;
-      color: #ffc107;
-      padding: 0.2rem 0.75rem;
-      border-radius: 20px;
-      font-weight: 600;
-      font-size: 0.8rem;
-    }
-
-    /* Champion banner */
-    .champion-banner {
-      background: linear-gradient(135deg, #ffc107, #ff9800);
-      color: #1a1a2e;
-      text-align: center;
-      padding: 1rem 1.5rem;
-      border-radius: 10px;
-      font-size: 1.3rem;
-      font-weight: 800;
-      margin-bottom: 1.5rem;
-    }
-    .champion-banner .runner-up {
-      font-size: 0.9rem;
-      font-weight: 600;
-      margin-top: 0.25rem;
-      opacity: 0.85;
-    }
-
-    /* Section titles */
-    .section-title {
-      font-size: 0.75rem;
-      font-weight: 800;
+    .print-header__mark {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
-      margin: 1.5rem 0 0.75rem;
-      padding: 0.3rem 0.75rem;
-      border-radius: 4px;
-      display: inline-block;
+      letter-spacing: 0.22em;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
     }
-    .section-title.winners { background: #1a1a2e; color: #ffc107; }
-    .section-title.losers  { background: #dc3545; color: #fff; }
-    .section-title.grand   { background: #ffc107; color: #1a1a2e; }
+    .print-header__title {
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      line-height: 0.95;
+      color: var(--ink);
+    }
+    .print-header__date {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      color: var(--ink-mute);
+      margin-top: 0.625rem;
+      letter-spacing: -0.005em;
+    }
+    .print-header__meta {
+      display: grid;
+      grid-auto-flow: column;
+      gap: 1.5rem;
+      align-items: end;
+    }
+    .meta-stat {
+      text-align: right;
+    }
+    .meta-stat__value {
+      font-family: var(--font-mono);
+      font-size: 1.125rem;
+      font-weight: 500;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .meta-stat__value--accent { color: var(--accent); }
+    .meta-stat__label {
+      font-family: var(--font-mono);
+      font-size: 0.575rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--ink-dim);
+      margin-top: 0.35rem;
+    }
 
-    /* Bracket layout */
-    .bracket-wrap { overflow-x: auto; padding-bottom: 0.5rem; }
+    /* ── Champion slab ── */
+    .print-champion {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 2rem;
+      align-items: center;
+      padding: 1.25rem 0;
+      border-top: 1px solid var(--line-hi);
+      border-bottom: 1px solid var(--line-hi);
+      margin: 0 0 2rem;
+      position: relative;
+    }
+    .print-champion::before {
+      content: '';
+      position: absolute;
+      left: 0; top: -1px;
+      width: 48px;
+      height: 2px;
+      background: var(--accent);
+    }
+    .print-champion__mark {
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      text-transform: uppercase;
+      letter-spacing: 0.26em;
+      color: var(--accent);
+    }
+    .print-champion__name {
+      font-size: clamp(1.5rem, 3vw, 2.125rem);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      line-height: 1;
+    }
+    .print-champion__runner {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--ink-mute);
+      margin-top: 0.5rem;
+      letter-spacing: -0.005em;
+    }
+    .print-champion__runner b { color: var(--ink); font-weight: 500; }
+    .print-champion__amount {
+      font-family: var(--font-mono);
+      font-size: 1.75rem;
+      font-weight: 500;
+      color: var(--accent);
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
+    /* ── Section titles ── */
+    .section-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      margin: 1.75rem 0 0.875rem;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--ink);
+    }
+    .section-title::before {
+      content: '';
+      width: 12px;
+      height: 1px;
+      background: var(--accent);
+    }
+    .section-title.losers::before { background: var(--ink-mute); }
+    .section-title.grand { color: var(--accent); }
+    .section-title.grand::before { height: 2px; background: var(--accent); }
+
+    /* ── Bracket layout ── */
+    .bracket-wrap { overflow-x: auto; padding-bottom: 0.25rem; }
     .bracket {
       display: flex;
-      gap: 1.5rem;
+      gap: 2rem;
       align-items: flex-start;
       min-width: max-content;
-      padding: 0.5rem 0;
+      padding: 0.25rem 0;
     }
     .bracket-round {
       display: flex;
       flex-direction: column;
-      gap: 0;
-      min-width: 180px;
+      min-width: 210px;
     }
     .round-label {
-      text-align: center;
-      font-weight: 800;
-      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      font-weight: 500;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #fff;
-      background: #1a1a2e;
-      border-radius: 4px;
-      padding: 0.2rem 0.5rem;
-      margin-bottom: 0.6rem;
-    }
-    .round-label.lb { background: #dc3545; }
-    .round-label.gf { background: #ffc107; color: #1a1a2e; }
-
-    /* Match card */
-    .match-card {
-      background: #fff;
-      border: 2px solid #dee2e6;
-      border-radius: 8px;
-      overflow: hidden;
+      letter-spacing: 0.22em;
+      color: var(--ink-mute);
       margin-bottom: 0.75rem;
+      padding: 0 0 0.3rem;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    .match-card.done { border-color: #198754; }
+    .round-label::before {
+      content: '';
+      width: 8px;
+      height: 1px;
+      background: var(--accent);
+    }
+    .round-label.lb::before { background: var(--ink-mute); }
+    .round-label.gf { color: var(--accent); }
+    .round-label.gf::before { height: 2px; background: var(--accent); }
+
+    /* ── Match card ── */
+    .match-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      margin-bottom: 0.625rem;
+      position: relative;
+    }
+    .match-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 2px;
+      background: transparent;
+    }
+    .match-card.done::before { background: var(--ink-mute); }
+    .match-card.done { border-color: var(--line); }
+
     .match-slot {
       display: flex;
       align-items: center;
-      padding: 0.4rem 0.6rem;
-      gap: 0.4rem;
-      min-height: 2.2rem;
+      padding: 0.45rem 0.65rem;
+      gap: 0.5rem;
+      min-height: 2.1rem;
     }
     .player-name {
       flex: 1;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      font-weight: 600;
+      font-weight: 400;
+      color: var(--ink);
+      letter-spacing: -0.005em;
+      font-variant-numeric: tabular-nums;
     }
-    .slot-winner {
-      background: rgba(25,135,84,0.12);
-      font-weight: 800;
-      color: #198754;
-    }
-    .slot-loser {
-      opacity: 0.4;
-      text-decoration: line-through;
-    }
-    .match-divider { height: 1px; background: #dee2e6; }
-    .bye-text { font-size: 0.75rem; color: #aaa; font-style: italic; }
-    .score-pill {
-      background: #1a1a2e;
-      color: #ffc107;
-      font-weight: 800;
-      font-size: 0.75rem;
-      border-radius: 4px;
-      padding: 0.1rem 0.35rem;
-      min-width: 1.4rem;
-      text-align: center;
-    }
-    .score-pill.win { background: #198754; color: #fff; }
-    .score-pill.lose { background: #dee2e6; color: #666; }
+    .slot-winner { background: var(--accent-soft); }
+    .slot-winner .player-name { color: var(--accent); font-weight: 500; }
+    .slot-winner::before,
+    .match-card .slot-winner { position: relative; }
+    .match-card:has(.slot-winner:first-child)::before,
+    .match-card .slot-winner ~ .slot-winner::before { background: var(--accent); }
 
-    /* Footer */
+    .slot-loser { opacity: 0.42; }
+    .slot-loser .player-name {
+      text-decoration: line-through;
+      text-decoration-color: var(--ink-dim);
+      color: var(--ink-dim);
+    }
+    .match-divider { height: 1px; background: var(--line); }
+    .bye-text {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--ink-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .score-pill {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      font-size: 0.7rem;
+      background: transparent;
+      color: var(--ink-mute);
+      border: 1px solid var(--line);
+      min-width: 1.4rem;
+      height: 1.4rem;
+      border-radius: 2px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0.3rem;
+      letter-spacing: -0.02em;
+    }
+    .score-pill.win {
+      background: var(--accent);
+      color: var(--paper);
+      border-color: var(--accent);
+    }
+    .score-pill.lose {
+      background: transparent;
+      color: var(--ink-dim);
+      border-color: var(--line);
+    }
+
+    /* ── Footer ── */
     .print-footer {
-      text-align: center;
-      margin-top: 1.5rem;
+      margin-top: 2rem;
       padding-top: 1rem;
-      border-top: 1px solid #dee2e6;
-      font-size: 0.75rem;
-      color: #aaa;
+      border-top: 1px solid var(--line);
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--ink-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 640px) {
+      body { padding: 0.75rem; }
+      .print-header { grid-template-columns: 1fr; gap: 1rem; }
+      .print-header__meta { grid-auto-flow: row; gap: 0.75rem; }
+      .meta-stat { text-align: left; }
+      .print-champion { grid-template-columns: 1fr; gap: 0.5rem; }
+      #bracket-canvas { padding: 1.25rem 1rem; }
     }
 
     /* Print media */
     @media print {
       .toolbar { display: none !important; }
       body { padding: 0; background: #fff; }
-      #bracket-canvas { box-shadow: none; padding: 1rem; }
+      #bracket-canvas { border: 0; padding: 0.5rem; }
     }
   </style>
 </head>
 <body>
 
-<!-- Toolbar -->
 <div class="toolbar no-print">
-  <h6>🖨 Print / Share — {{ t.name }}</h6>
-  <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn-tool btn-back">← Back</a>
-  <button class="btn-tool btn-download" onclick="downloadImage()">⬇ Download PNG</button>
-  <button class="btn-tool btn-print" onclick="window.print()">🖨 Print</button>
+  <div class="toolbar__title">{{ t.name }} · Print View</div>
+  <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn-tool">← Back</a>
+  <button class="btn-tool" onclick="downloadImage()">Download PNG</button>
+  <button class="btn-tool btn-tool--primary" onclick="window.print()">Print</button>
 </div>
 
-<!-- Printable bracket -->
 <div id="bracket-canvas">
 
-  <!-- Header -->
-  <div class="print-header">
-    <h1>🎱 {{ t.name }}</h1>
-    <div class="meta">
-      {% if t.tournament_date %}
-        <span>📅 {{ t.tournament_date.strftime('%B %d, %Y') }}</span>
-      {% endif %}
-      <span class="meta-pill">{{ t.format_label }}</span>
-      <span class="meta-pill">{{ t.num_players }} Players</span>
-      <span class="meta-pill">${{ t.buyin }} buy-in</span>
-      <span class="meta-pill">Pool: ${{ t.prize_pool }}</span>
-      {% for p in t.prize_payouts %}
-      <span class="meta-pill">{{ p.label }}: ${{ p.amount }}</span>
-      {% endfor %}
+  <header class="print-header">
+    <div>
+      <div class="print-header__mark">TourneyTracker · Official Bracket</div>
+      <h1 class="print-header__title">{{ t.name }}</h1>
+      <div class="print-header__date">
+        {% if t.tournament_date %}{{ t.tournament_date.strftime('%B %d, %Y') }}{% endif %}
+        &nbsp;·&nbsp; {{ t.format_label }}{% if t.bracket_type == 'double' %} · Double Elim{% endif %}
+      </div>
     </div>
-  </div>
+    <div class="print-header__meta">
+      <div class="meta-stat">
+        <div class="meta-stat__value">{{ '%02d' % t.num_players }}</div>
+        <div class="meta-stat__label">Players</div>
+      </div>
+      <div class="meta-stat">
+        <div class="meta-stat__value">${{ t.buyin }}</div>
+        <div class="meta-stat__label">Buy-in</div>
+      </div>
+      <div class="meta-stat">
+        <div class="meta-stat__value meta-stat__value--accent">${{ t.prize_pool }}</div>
+        <div class="meta-stat__label">Pool</div>
+      </div>
+    </div>
+  </header>
 
   {% if t.champion %}
   {% set payouts = t.prize_payouts %}
-  <div class="champion-banner">
-    🏆 Champion: {{ t.champion.full_name }}{% if payouts %} — ${{ payouts[0].amount }}{% endif %}
-    {% if t.runner_up %}
-    <div class="runner-up">🥈 Runner-up: {{ t.runner_up.full_name }}{% if payouts|length > 1 %} — ${{ payouts[1].amount }}{% endif %}</div>
-    {% endif %}
-    {% if payouts|length > 2 %}
-    <div class="runner-up" style="font-size:0.8rem">
-      {% for p in payouts[2:] %}{{ p.label }}: ${{ p.amount }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}{% endfor %}
+  <section class="print-champion">
+    <div class="print-champion__mark">Champion</div>
+    <div>
+      <div class="print-champion__name">{{ t.champion.full_name }}</div>
+      {% if t.runner_up %}
+      <div class="print-champion__runner">
+        Runner-up <b>{{ t.runner_up.full_name }}</b>
+        {% if payouts|length > 1 %}&nbsp;·&nbsp; ${{ payouts[1].amount }}{% endif %}
+      </div>
+      {% endif %}
+      {% if payouts|length > 2 %}
+      <div class="print-champion__runner">
+        {% for p in payouts[2:] %}{{ p.label }} ${{ p.amount }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}{% endfor %}
+      </div>
+      {% endif %}
     </div>
+    {% if payouts %}
+    <div class="print-champion__amount">${{ payouts[0].amount }}</div>
     {% endif %}
-  </div>
+  </section>
   {% endif %}
 
-  {# ─────────────── Shared match-card macro ─────────────── #}
   {% macro print_match(match) %}
   {% set p1 = match.player1.profile if match.player1 else None %}
   {% set p2 = match.player2.profile if match.player2 else None %}
@@ -264,12 +480,10 @@
             {% elif match.winner_id %}lose{% endif %}">
             {{ match.score1 or 0 }}
           </span>
-        {% elif match.winner_id == match.player1_id %}
-          <span style="color:#198754;font-size:0.75rem">✔</span>
         {% endif %}
         <span class="player-name">{{ p1.display_name }}</span>
       {% else %}
-        <span class="bye-text">BYE</span>
+        <span class="bye-text">Bye</span>
       {% endif %}
     </div>
     <div class="match-divider"></div>
@@ -283,20 +497,17 @@
             {% elif match.winner_id %}lose{% endif %}">
             {{ match.score2 or 0 }}
           </span>
-        {% elif match.winner_id == match.player2_id %}
-          <span style="color:#198754;font-size:0.75rem">✔</span>
         {% endif %}
         <span class="player-name">{{ p2.display_name }}</span>
       {% else %}
-        <span class="bye-text">BYE</span>
+        <span class="bye-text">Bye</span>
       {% endif %}
     </div>
   </div>
   {% endmacro %}
 
-  {# ─── Winners Bracket ─── #}
   {% if t.bracket_type == 'double' %}
-  <span class="section-title winners">Winners Bracket</span>
+  <div class="section-title winners">Winners Bracket</div>
   {% endif %}
   <div class="bracket-wrap">
     <div class="bracket">
@@ -316,9 +527,8 @@
     </div>
   </div>
 
-  {# ─── Losers Bracket ─── #}
   {% if t.bracket_type == 'double' and lb_rounds %}
-  <span class="section-title losers">Losers Bracket</span>
+  <div class="section-title losers">Losers Bracket</div>
   <div class="bracket-wrap">
     <div class="bracket">
       {% for r in range(1, num_lb_rounds + 1) %}
@@ -334,9 +544,8 @@
     </div>
   </div>
 
-  {# ─── Grand Final ─── #}
   {% if gf_match %}
-  <span class="section-title grand">Grand Final</span>
+  <div class="section-title grand">Grand Final</div>
   <div class="bracket-wrap">
     <div class="bracket">
       <div class="bracket-round">
@@ -349,16 +558,18 @@
   {% endif %}
 
   <div class="print-footer">
-    Generated by TourneyTracker &nbsp;·&nbsp;
-    {% if t.tournament_date %}{{ t.tournament_date.strftime('%Y') }}{% endif %}
-    &nbsp;·&nbsp; {{ t.splits|map(attribute='pct')|list|join('/') }}% prize split
+    <span>TourneyTracker · Official Bracket</span>
+    <span>
+      {% if t.tournament_date %}{{ t.tournament_date.strftime('%Y') }} &nbsp;·&nbsp;{% endif %}
+      {{ t.splits|map(attribute='pct')|list|join('/') }}% prize split
+    </span>
   </div>
 </div>
 
 <script>
 function downloadImage() {
   const el = document.getElementById('bracket-canvas');
-  html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true })
+  html2canvas(el, { scale: 2, backgroundColor: '#fafaf7', useCORS: true })
     .then(canvas => {
       const link = document.createElement('a');
       link.download = '{{ t.name|replace(" ", "_") }}_bracket.png';

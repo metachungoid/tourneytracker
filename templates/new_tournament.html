@@ -2,190 +2,205 @@
 {% block title %}New Tournament — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-7 col-lg-6">
-    <h2 class="mb-3"><i class="bi bi-trophy me-2 text-warning"></i>New Tournament</h2>
-    <div class="text-muted small mb-3">
-      <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">
+      OPS · <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a> · Setup
     </div>
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <form method="post" id="tourneyForm">
+    <h1 class="page-hero__title">New Tournament</h1>
+    <p class="page-hero__sub">Provision a bracket. Name, format, payouts, and seeding — all before a single ball is racked.</p>
+  </div>
+</header>
 
-          <!-- Name & Date -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Tournament Name <span class="text-danger">*</span></label>
-            <input type="text" name="name" class="form-control"
-                   placeholder="e.g. Spring Pool Classic" required autofocus>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Tournament Date</label>
-            <input type="date" name="tournament_date" class="form-control">
-            <div class="form-text">Leave blank if date is TBD.</div>
-          </div>
+<form method="post" id="tourneyForm" class="setup-form">
 
-          <!-- Bracket Type -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Bracket Type</label>
-            <div class="d-flex gap-2 flex-wrap">
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="bracket_type" id="bt-single"
-                       value="single" checked>
-                <label class="form-check-label" for="bt-single">
-                  <i class="bi bi-diagram-3 me-1"></i>Single Elimination
-                  <div class="small text-muted">Lose once, you're out</div>
-                </label>
-              </div>
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="bracket_type" id="bt-double"
-                       value="double">
-                <label class="form-check-label" for="bt-double">
-                  <i class="bi bi-diagram-3-fill me-1"></i>Double Elimination
-                  <div class="small text-muted">Lose twice to be eliminated</div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <!-- Format -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Match Format</label>
-            <div class="d-flex gap-2 flex-wrap">
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="format" id="fmt-bestof"
-                       value="bestof" checked>
-                <label class="form-check-label" for="fmt-bestof">
-                  <i class="bi bi-trophy me-1"></i>Best of X
-                  <div class="small text-muted">First to win majority (e.g. best of 3 = first to 2)</div>
-                </label>
-              </div>
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="format" id="fmt-raceto"
-                       value="raceto">
-                <label class="form-check-label" for="fmt-raceto">
-                  <i class="bi bi-bullseye me-1"></i>Race to X
-                  <div class="small text-muted">First to reach X wins</div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <!-- Format value -->
-          <div class="mb-3" id="formatValueRow">
-            <label class="form-label fw-semibold" id="formatValueLabel">Best of</label>
-            <div class="input-group" style="max-width:180px">
-              <input type="number" name="format_value" id="format_value" class="form-control"
-                     min="1" max="99" value="1">
-              <span class="input-group-text">games</span>
-            </div>
-            <div class="form-text" id="formatValueHelp">Best of 1 = single game per match.</div>
-          </div>
-
-          <!-- Losers Bracket Format (shown only for double elim) -->
-          <div class="mb-3" id="lbFormatSection" style="display:none">
-            <label class="form-label fw-semibold">Losers Bracket Format</label>
-            <div class="d-flex gap-2 flex-wrap mb-2">
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="lb_format" id="lb-bestof"
-                       value="bestof" checked>
-                <label class="form-check-label" for="lb-bestof">
-                  <i class="bi bi-trophy me-1"></i>Best of X
-                </label>
-              </div>
-              <div class="form-check format-card">
-                <input class="form-check-input" type="radio" name="lb_format" id="lb-raceto"
-                       value="raceto">
-                <label class="form-check-label" for="lb-raceto">
-                  <i class="bi bi-bullseye me-1"></i>Race to X
-                </label>
-              </div>
-            </div>
-            <div class="input-group" style="max-width:180px">
-              <input type="number" name="lb_format_value" id="lb_format_value" class="form-control"
-                     min="1" max="99" value="1">
-              <span class="input-group-text">games</span>
-            </div>
-            <div class="form-text mt-1">Shorter format for losers bracket saves time. Set to 1 for single game per match.</div>
-          </div>
-
-          <!-- Fargo Rating -->
-          <div class="mb-3">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" name="fargo_rated"
-                     id="fargoRated" value="1">
-              <label class="form-check-label fw-semibold" for="fargoRated">
-                Fargo Rated Tournament
-                <span class="text-muted fw-normal small ms-1">— shows player Fargo ratings on the bracket</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Seeding -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Seeding</label>
-            <select name="seeding" class="form-select">
-              <option value="random">Random draw</option>
-              <option value="rankings">By current rankings (top seeds separated)</option>
-            </select>
-            <div class="form-text">Rankings seeding keeps top players apart until later rounds.</div>
-          </div>
-
-          <!-- Buy-in -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Buy-in Fee ($ per player)</label>
-            <div class="input-group">
-              <span class="input-group-text">$</span>
-              <input type="number" name="buyin" id="buyin" class="form-control"
-                     min="0" step="1" value="10" required>
-            </div>
-          </div>
-
-          <!-- Table Fee -->
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Table Fee ($ per game)</label>
-            <div class="input-group">
-              <span class="input-group-text">$</span>
-              <input type="number" name="table_fee" id="table_fee" class="form-control"
-                     min="0" step="0.01" value="1">
-            </div>
-            <div class="form-text">Deducted from the prize pool for each game played. Set to $0 for open tables.</div>
-          </div>
-
-          <!-- Prize Split -->
-          <div class="mb-4">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <label class="form-label fw-semibold mb-0">Prize Split</label>
-              <button type="button" class="btn btn-outline-success btn-sm" onclick="addPlace()">
-                <i class="bi bi-plus-circle me-1"></i>Add Place
-              </button>
-            </div>
-
-            <div id="splitRows"></div>
-
-            <!-- Summary bar -->
-            <div class="mt-2 p-2 rounded" id="splitSummary" style="background:#0f3460; font-size:0.82rem">
-              <div class="d-flex justify-content-between align-items-center">
-                <span>Total: <strong id="totalPct">100</strong>%</span>
-                <span id="houseKeep" class="text-muted"></span>
-              </div>
-              <div class="progress mt-1" style="height:6px">
-                <div class="progress-bar" id="splitBar" style="width:100%;background:#ffc107"></div>
-              </div>
-              <div class="mt-1 small text-muted">Exact payouts calculated once players register.</div>
-            </div>
-          </div>
-
-          <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-warning flex-fill fw-bold">
-              <i class="bi bi-plus-circle me-1"></i>Create Tournament
-            </button>
-            <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}" class="btn btn-outline-secondary">Cancel</a>
-          </div>
-        </form>
+  {# ═════════════ 1 · Identity ═════════════ #}
+  <section class="setup-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Identity</h2>
+      <span class="section-head__count">01 / 04</span>
+    </div>
+    <div class="form-stack form-stack--wide">
+      <div class="form-field form-field--row">
+        <div>
+          <label class="form-label" for="tname">Tournament Name <span class="form-label__req">*</span></label>
+          <input id="tname" type="text" name="name" class="form-control"
+                 placeholder="Spring Pool Classic" required autofocus>
+        </div>
+        <div>
+          <label class="form-label" for="tdate">Tournament Date <span class="form-label__opt">· optional</span></label>
+          <input id="tdate" type="date" name="tournament_date" class="form-control mono-input">
+          <span class="form-help">Leave blank if TBD.</span>
+        </div>
       </div>
     </div>
+  </section>
+
+  {# ═════════════ 2 · Format ═════════════ #}
+  <section class="setup-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Format</h2>
+      <span class="section-head__count">02 / 04</span>
+    </div>
+
+    <div class="form-stack form-stack--wide">
+      <div class="form-field">
+        <label class="form-label">Bracket Type</label>
+        <div class="format-grid">
+          <label class="format-card">
+            <input class="form-check-input" type="radio" name="bracket_type" id="bt-single" value="single" checked>
+            <div class="format-card__body">
+              <div class="format-card__title">Single Elimination</div>
+              <div class="format-card__sub">Lose once, you're out.</div>
+            </div>
+          </label>
+          <label class="format-card">
+            <input class="form-check-input" type="radio" name="bracket_type" id="bt-double" value="double">
+            <div class="format-card__body">
+              <div class="format-card__title">Double Elimination</div>
+              <div class="format-card__sub">Lose twice to be eliminated.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">Match Format</label>
+        <div class="format-grid">
+          <label class="format-card">
+            <input class="form-check-input" type="radio" name="format" id="fmt-bestof" value="bestof" checked>
+            <div class="format-card__body">
+              <div class="format-card__title">Best of X</div>
+              <div class="format-card__sub">First to the majority wins. Best of 3 = first to 2.</div>
+            </div>
+          </label>
+          <label class="format-card">
+            <input class="form-check-input" type="radio" name="format" id="fmt-raceto" value="raceto">
+            <div class="format-card__body">
+              <div class="format-card__title">Race to X</div>
+              <div class="format-card__sub">First to reach X game wins takes the match.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-field" id="formatValueRow">
+        <label class="form-label" for="format_value"><span id="formatValueLabel">Best of</span></label>
+        <div class="stepper">
+          <input id="format_value" type="number" name="format_value" class="form-control mono-input"
+                 min="1" max="99" value="1">
+          <span class="stepper__unit">games</span>
+        </div>
+        <span class="form-help" id="formatValueHelp">Best of 1 = single game per match.</span>
+      </div>
+
+      <div class="form-field" id="lbFormatSection" style="display:none">
+        <label class="form-label">Losers Bracket Format</label>
+        <div class="format-grid">
+          <label class="format-card">
+            <input class="form-check-input" type="radio" name="lb_format" id="lb-bestof" value="bestof" checked>
+            <div class="format-card__body">
+              <div class="format-card__title">Best of X</div>
+            </div>
+          </label>
+          <label class="format-card">
+            <input class="form-check-input" type="radio" name="lb_format" id="lb-raceto" value="raceto">
+            <div class="format-card__body">
+              <div class="format-card__title">Race to X</div>
+            </div>
+          </label>
+        </div>
+        <div class="stepper" style="margin-top: 0.75rem;">
+          <input id="lb_format_value" type="number" name="lb_format_value" class="form-control mono-input"
+                 min="1" max="99" value="1">
+          <span class="stepper__unit">games</span>
+        </div>
+        <span class="form-help">Shorter losers-bracket format keeps the night moving.</span>
+      </div>
+
+      <label class="toggle-row">
+        <input class="form-check-input" type="checkbox" name="fargo_rated" id="fargoRated" value="1">
+        <span class="toggle-row__body">
+          <span class="toggle-row__title">Fargo Rated</span>
+          <span class="toggle-row__sub">Display player Fargo ratings on every bracket slot.</span>
+        </span>
+      </label>
+    </div>
+  </section>
+
+  {# ═════════════ 3 · Seeding & Economy ═════════════ #}
+  <section class="setup-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Seeding &amp; Economy</h2>
+      <span class="section-head__count">03 / 04</span>
+    </div>
+
+    <div class="form-stack form-stack--wide">
+      <div class="form-field">
+        <label class="form-label" for="seeding">Seeding Method</label>
+        <select id="seeding" name="seeding" class="form-select">
+          <option value="random">Random draw</option>
+          <option value="rankings">By current rankings (top seeds separated)</option>
+        </select>
+        <span class="form-help">Rankings seeding keeps top players apart until later rounds.</span>
+      </div>
+
+      <div class="form-field form-field--row">
+        <div>
+          <label class="form-label" for="buyin">Buy-in <span class="form-label__opt">· per player</span></label>
+          <div class="stepper">
+            <span class="stepper__prefix">$</span>
+            <input id="buyin" type="number" name="buyin" class="form-control mono-input"
+                   min="0" step="1" value="10" required>
+          </div>
+        </div>
+        <div>
+          <label class="form-label" for="table_fee">Table Fee <span class="form-label__opt">· per game</span></label>
+          <div class="stepper">
+            <span class="stepper__prefix">$</span>
+            <input id="table_fee" type="number" name="table_fee" class="form-control mono-input"
+                   min="0" step="0.01" value="1">
+          </div>
+          <span class="form-help">Set to $0 for open tables.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {# ═════════════ 4 · Prize Split ═════════════ #}
+  <section class="setup-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Prize Split</h2>
+      <button type="button" class="btn btn-outline-primary btn-sm" onclick="addPlace()">
+        Add Place
+        <i class="bi bi-plus-lg"></i>
+      </button>
+    </div>
+
+    <div class="form-stack form-stack--wide">
+      <div id="splitRows" class="split-rows"></div>
+
+      <div id="splitSummary" class="split-summary">
+        <div class="split-summary__row">
+          <span>Total: <strong id="totalPct">100</strong></span>
+          <span id="houseKeep"></span>
+        </div>
+        <div class="split-summary__bar">
+          <div class="split-summary__fill" id="splitBar" style="width:100%"></div>
+        </div>
+        <div class="split-summary__note">Exact payouts calculated once players register.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="form-actions" style="max-width: 760px;">
+    <button type="submit" class="btn btn-primary">
+      Create Tournament
+      <i class="bi bi-arrow-right"></i>
+    </button>
+    <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}" class="btn btn-outline-secondary">Cancel</a>
   </div>
-</div>
+</form>
 {% endblock %}
 
 {% block scripts %}
@@ -201,29 +216,26 @@ function addPlace(val, type) {
   const defaultType = type || 'pct';
 
   const row = document.createElement('div');
-  row.className = 'split-row d-flex align-items-center gap-2 mb-2';
+  row.className = 'split-row';
   row.dataset.idx = idx;
   row.innerHTML = `
-    <span class="split-place-label badge bg-secondary" style="min-width:2.8rem">${label}</span>
-    <select name="split_type_${idx}" class="form-select form-select-sm split-type"
-            style="max-width:5rem" onchange="updateTotals()">
+    <span class="split-row__place">${label}</span>
+    <select name="split_type_${idx}" class="form-select split-type" onchange="updateTotals()">
       <option value="pct" ${defaultType === 'pct' ? 'selected' : ''}>%</option>
       <option value="flat" ${defaultType === 'flat' ? 'selected' : ''}>$</option>
     </select>
-    <div class="input-group input-group-sm flex-fill">
-      <input type="number" name="split_val_${idx}" class="form-control split-val"
+    <div class="stepper split-row__val">
+      <input type="number" name="split_val_${idx}" class="form-control mono-input split-val"
              min="1" step="any" value="${defaultVal}" placeholder="${defaultType === 'flat' ? '$' : '%'}" required
              oninput="updateTotals()">
-      <span class="input-group-text split-unit">${defaultType === 'flat' ? '$' : '%'}</span>
+      <span class="stepper__unit split-unit">${defaultType === 'flat' ? '$' : '%'}</span>
     </div>
-    <button type="button" class="btn btn-xs btn-outline-danger" onclick="removePlace(this)"
-            title="Remove">
-      <i class="bi bi-x"></i>
+    <button type="button" class="btn btn-outline-danger btn-xs" onclick="removePlace(this)" title="Remove">
+      <i class="bi bi-x-lg"></i>
     </button>
   `;
   document.getElementById('splitRows').appendChild(row);
 
-  // Update placeholder/unit when type changes
   const select = row.querySelector('.split-type');
   const input = row.querySelector('.split-val');
   const unit = row.querySelector('.split-unit');
@@ -250,8 +262,7 @@ function reindexRows() {
   rows.forEach((row, i) => {
     const idx = i + 1;
     row.dataset.idx = idx;
-    const label = ORDINALS[i] || `${idx}th`;
-    row.querySelector('.split-place-label').textContent = label;
+    row.querySelector('.split-row__place').textContent = ORDINALS[i] || `${idx}th`;
     row.querySelector('.split-type').name = `split_type_${idx}`;
     row.querySelector('.split-val').name = `split_val_${idx}`;
   });
@@ -279,26 +290,19 @@ function updateTotals() {
 
   if (totalPct > 100) {
     bar.style.width = '100%';
-    bar.style.background = '#dc3545';
-    summary.style.borderLeft = '3px solid #dc3545';
-    house.textContent = `⚠ Percentages exceed 100% by ${totalPct - 100}%`;
-    house.style.color = '#dc3545';
+    summary.classList.add('split-summary--over');
+    house.textContent = `Percentages exceed 100% by ${totalPct - 100}%`;
   } else {
     bar.style.width = totalPct + '%';
-    bar.style.background = '#ffc107';
-    summary.style.borderLeft = '3px solid #ffc107';
+    summary.classList.remove('split-summary--over');
     const rem = 100 - totalPct;
     let info = '';
     if (rem > 0) info = `${rem}% stays with house`;
     if (totalFlat > 0) info += (info ? ' · ' : '') + `$${totalFlat} paid as flat`;
     house.textContent = info;
-    house.style.color = '#888';
   }
 }
 
-
-
-// Update format value label/help based on selection
 function updateFormatUI() {
   const fmt = document.querySelector('input[name=format]:checked').value;
   const val = parseInt(document.getElementById('format_value').value) || 1;
@@ -317,23 +321,17 @@ function updateFormatUI() {
       : `Race to ${val} = first to ${val} wins per match.`;
   }
 }
-document.querySelectorAll('input[name=format]').forEach(r => {
-  r.addEventListener('change', updateFormatUI);
-});
+document.querySelectorAll('input[name=format]').forEach(r => r.addEventListener('change', updateFormatUI));
 document.getElementById('format_value').addEventListener('input', updateFormatUI);
 updateFormatUI();
 
-// Toggle LB format section based on bracket type
 function updateBracketTypeUI() {
   const bt = document.querySelector('input[name=bracket_type]:checked').value;
   document.getElementById('lbFormatSection').style.display = bt === 'double' ? '' : 'none';
 }
-document.querySelectorAll('input[name=bracket_type]').forEach(r => {
-  r.addEventListener('change', updateBracketTypeUI);
-});
+document.querySelectorAll('input[name=bracket_type]').forEach(r => r.addEventListener('change', updateBracketTypeUI));
 updateBracketTypeUI();
 
-// Seed defaults on page load: 70 / 30
 addPlace(70);
 addPlace(30);
 </script>

@@ -2,192 +2,170 @@
 {% block title %}{{ t.name }} — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
-  <h2 class="mb-0"><i class="bi bi-trophy-fill text-warning me-2"></i>{{ t.name }}</h2>
-  <span class="badge bg-success fs-6">Open</span>
-  <span class="badge bg-info text-dark fs-6">{{ t.format_label }}</span>
-  {% if t.tournament_date %}
-    <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ t.tournament_date.strftime('%b %d, %Y') }}</span>
-  {% endif %}
-</div>
-
-<!-- Stats -->
-<div class="row g-3 mb-4">
-  <div class="col">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-3">
-        <div class="fs-3 fw-bold">{{ t.num_players }}</div>
-        <div class="small text-muted">Players</div>
-      </div>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">
+      OPS · {% if t.league %}<a href="{{ url_for('leagues.league_dashboard', lid=t.league.id) }}">{{ t.league.name }}</a> · {% endif %}Setup
+    </div>
+    <h1 class="page-hero__title">{{ t.name }}</h1>
+    <div class="page-hero__tags">
+      <span class="tag tag--live"><span class="status-dot status-dot--live"></span>Registration Open</span>
+      <span class="tag">{{ t.format_label }}</span>
+      <span class="tag">{{ 'Double Elim' if t.is_double else 'Single Elim' }}</span>
+      {% if t.tournament_date %}
+        <span class="tag tag--ghost">{{ t.tournament_date.strftime('%b %d, %Y') }}</span>
+      {% endif %}
     </div>
   </div>
-  <div class="col">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-3">
-        <div class="fs-3 fw-bold">${{ t.buyin }}</div>
-        <div class="small text-muted">Buy-in</div>
-      </div>
-    </div>
+</header>
+
+<div class="stat-strip">
+  <div class="stat-cell">
+    <span class="stat-cell__label">Players</span>
+    <span class="stat-cell__value">{{ '%02d' % t.num_players }}</span>
+    <span class="stat-cell__sub">{{ 'Registered' if t.num_players > 0 else 'None yet' }}</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">Buy-in</span>
+    <span class="stat-cell__value">${{ t.buyin }}</span>
+    <span class="stat-cell__sub">per player</span>
   </div>
   {% if t.num_players > 0 %}
-  <div class="col">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-3">
-        <div class="fs-3 fw-bold">{{ t.est_table_cost|money }}</div>
-        <div class="small text-muted">Est. Table Cost</div>
-        {% if t.status != 'open' %}
-        <div class="small text-info">{{ t.actual_table_cost|money }} actual</div>
-        {% endif %}
-      </div>
-    </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">Est. Table Cost</span>
+    <span class="stat-cell__value">{{ t.est_table_cost|money }}</span>
+    <span class="stat-cell__sub">
+      {% if t.status != 'open' %}{{ t.actual_table_cost|money }} actual{% else %}{{ t.table_fee|money }}/game{% endif %}
+    </span>
   </div>
-  <div class="col">
-    <div class="card text-center border-0 bg-success text-white">
-      <div class="card-body py-3">
-        <div class="fs-3 fw-bold">${{ t.gross_pool }}</div>
-        <div class="small">minus est. table costs</div>
-      </div>
-    </div>
+  <div class="stat-cell stat-cell--accent">
+    <span class="stat-cell__label">Gross Pool</span>
+    <span class="stat-cell__value stat-cell__value--accent">${{ t.gross_pool }}</span>
+    <span class="stat-cell__sub">minus est. table fees</span>
   </div>
-  <div class="col">
-    <div class="card text-center border-0 bg-danger text-white">
-      <div class="card-body py-3">
-        {% for p in t.prize_payouts %}
-        <div class="{% if loop.first %}fs-6 fw-bold{% else %}small{% endif %}">
-          {% if loop.first %}<i class="bi bi-trophy-fill me-1"></i>{% endif %}
-          {{ p.label }}: ${{ p.amount }}
-        </div>
-        {% endfor %}
-        <div class="small mt-1 opacity-75">
-          {% for s in t.splits %}{% if not loop.first %} / {% endif %}{% if s.get('type') == 'flat' %}${{ s.flat }}{% else %}{{ s.pct }}%{% endif %}{% endfor %} split
-        </div>
-      </div>
-    </div>
+  <div class="stat-cell stat-cell--payouts">
+    <span class="stat-cell__label">Payouts</span>
+    {% for p in t.prize_payouts %}
+      <span class="stat-cell__payout {% if loop.first %}stat-cell__payout--first{% endif %}">
+        <span>{{ p.label }}</span><span>${{ p.amount }}</span>
+      </span>
+    {% endfor %}
   </div>
   {% else %}
-  <div class="col-sm-6">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-3">
-        <div class="text-muted small">Prize pool will show once players are added.</div>
-        <div class="small mt-1 opacity-75">
-          {{ t.splits|map(attribute='pct')|list|join('/') }}% split · ${{ t.buyin }} buy-in
-        </div>
-      </div>
-    </div>
+  <div class="stat-cell" style="grid-column: span 3;">
+    <span class="stat-cell__label">Prize Pool</span>
+    <span class="stat-cell__value" style="color: var(--fg-dim);">—</span>
+    <span class="stat-cell__sub">
+      {{ t.splits|map(attribute='pct')|list|join('/') }}% split · ${{ t.buyin }} buy-in. Add players to compute.
+    </span>
   </div>
   {% endif %}
 </div>
 
 {% if t.num_players >= 2 %}
-<div class="alert alert-info d-flex align-items-start gap-2 mb-4">
-  <i class="bi bi-info-circle-fill mt-1"></i>
-  <div>
-    {{ t.num_players }} players × ${{ t.buyin }} = <strong>${{ t.gross_pool }}</strong>
-    &nbsp;({% for p in t.prize_payouts %}{{ p.label }} ${{ p.amount }}{% if not loop.last %} / {% endif %}{% endfor %})
-    <span class="text-muted small ms-1">— {{ t.table_fee|money }}/game table fee · {{ t.format_label }}{% if t.race_to > 1 %} (~{{ t.est_games_per_match }} games/match avg){% endif %}</span>
-  </div>
+<div class="alert" style="margin-bottom: 2rem;">
+  <strong>{{ t.num_players }}</strong> players × <strong>${{ t.buyin }}</strong> = <strong>${{ t.gross_pool }}</strong>
+  &nbsp;·&nbsp; {% for p in t.prize_payouts %}{{ p.label }} ${{ p.amount }}{% if not loop.last %} / {% endif %}{% endfor %}
+  &nbsp;·&nbsp; {{ t.table_fee|money }}/game · {{ t.format_label }}{% if t.race_to > 1 %} (~{{ t.est_games_per_match }} games/match avg){% endif %}
 </div>
 {% endif %}
 
-<div class="row g-4">
-  <!-- Left column: add / generate -->
-  <div class="col-md-5">
+<div class="tourney-setup">
 
-    <!-- Quick-add new player -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header fw-semibold"><i class="bi bi-person-plus-fill me-2"></i>Quick Add New Player</div>
-      <div class="card-body">
-        <form method="post" action="{{ url_for('tournaments.quick_add_player', tid=t.id) }}">
-          <div class="d-flex gap-2 mb-2">
-            <input type="text" name="first_name" class="form-control"
-                   placeholder="First name" required>
-            <input type="text" name="last_name" class="form-control"
-                   placeholder="Last name">
-            <button class="btn btn-success text-nowrap">Add</button>
-          </div>
-        </form>
-        <div class="form-text">Creates a new player profile and adds them instantly.</div>
-      </div>
+  <section class="tourney-setup__roster">
+    <div class="section-head">
+      <h2 class="section-head__title">Roster</h2>
+      <span class="section-head__count">{{ '%02d' % t.num_players }} player{{ 's' if t.num_players != 1 else '' }}</span>
     </div>
 
-    <!-- Add existing player -->
-    <div class="card shadow-sm mb-3">
-      <div class="card-header fw-semibold"><i class="bi bi-person-plus me-2"></i>Add from Registry</div>
-      <div class="card-body">
-        <form method="post" action="{{ url_for('tournaments.add_player', tid=t.id) }}" id="registry-form">
-          <input type="hidden" name="profile_id" id="registry-pid" required>
-          <div class="d-flex gap-2">
-            <div class="flex-fill position-relative">
-              <input type="text" class="form-control" id="registry-search"
-                     placeholder="Search by name or ID…" autocomplete="off">
-              <div class="list-group position-absolute w-100 shadow-sm" id="registry-results"
-                   style="z-index:999; max-height:240px; overflow-y:auto; display:none"></div>
-            </div>
-            <button class="btn btn-warning text-nowrap" id="registry-btn" disabled>Add</button>
+    {% if t.participants %}
+    <ul class="roster-list">
+      {% for part in t.participants %}
+      <li class="roster-list__item" style="--i: {{ loop.index0 }}">
+        <span class="roster-list__num">{{ '%02d' % loop.index }}</span>
+        <div class="roster-list__body">
+          <div class="roster-list__name">{{ part.profile.display_name }}</div>
+          <div class="roster-list__meta">
+            <span class="eyebrow">#{{ '%03d' % part.profile.id }}</span>
+            {% if part.profile.phone %}<span>{{ part.profile.phone }}</span>{% endif %}
+            {% if part.profile.fargo_rating %}<span class="fargo-badge">{{ part.profile.fargo_rating }}</span>{% endif %}
           </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Generate bracket -->
-    <div class="card shadow-sm">
-      <div class="card-body text-center">
-        {% if t.num_players >= 2 %}
-          {% set min_players = 4 if t.bracket_type == 'double' else 2 %}
-          {% if t.num_players >= min_players %}
-            <form method="post" action="{{ url_for('tournaments.generate', tid=t.id) }}"
-                  onsubmit="return confirm('Lock in {{ t.num_players }} players and generate {{ t.format_label }} bracket?')">
-              <button class="btn btn-primary w-100 fw-bold">
-                <i class="bi bi-diagram-3 me-2"></i>Generate Bracket
-              </button>
-            </form>
-            <div class="form-text mt-2">Player list will be locked. Seeding: <strong>{{ t.seeding|capitalize }}</strong>.</div>
-          {% else %}
-            <button class="btn btn-secondary w-100" disabled>
-              <i class="bi bi-diagram-3 me-2"></i>Generate Bracket
-            </button>
-            <div class="form-text mt-2 text-danger">Double elimination requires at least 4 players.</div>
-          {% endif %}
-        {% else %}
-          <button class="btn btn-secondary w-100" disabled>
-            <i class="bi bi-diagram-3 me-2"></i>Generate Bracket
+        </div>
+        <form method="post" action="{{ url_for('tournaments.remove_player', tid=t.id, part_id=part.id) }}"
+              onsubmit="return confirm('Remove {{ part.profile.full_name }} from this tournament?')">
+          <button type="submit" class="btn btn-outline-danger btn-xs" aria-label="Remove">
+            <i class="bi bi-x-lg"></i>
           </button>
-          <div class="form-text mt-2 text-danger">Add at least 2 players first.</div>
-        {% endif %}
-      </div>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty">
+      <div class="empty__mark">Roster Empty</div>
+      Add players via quick-add or the registry search on the right.
     </div>
-  </div>
+    {% endif %}
+  </section>
 
-  <!-- Right column: roster -->
-  <div class="col-md-7">
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-people-fill me-2"></i>Roster ({{ t.num_players }})
-      </div>
-      <ul class="list-group list-group-flush">
-        {% for part in t.participants %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <div>
-            <i class="bi bi-person-circle me-2 text-muted"></i>
-            <strong>{{ part.profile.display_name }}</strong>
-            <span class="text-muted small ms-1">#{{ part.profile.id }}</span>
-            {% if part.profile.phone %}
-              <span class="text-muted small ms-2"><i class="bi bi-telephone me-1"></i>{{ part.profile.phone }}</span>
-            {% endif %}
+  <aside class="tourney-setup__side">
+    <section class="side-block">
+      <div class="eyebrow eyebrow--accent">Quick Add</div>
+      <h3 class="side-block__title">New Player</h3>
+      <form method="post" action="{{ url_for('tournaments.quick_add_player', tid=t.id) }}" class="form-stack">
+        <div class="form-field form-field--row">
+          <input type="text" name="first_name" class="form-control" placeholder="First" required>
+          <input type="text" name="last_name" class="form-control" placeholder="Last">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary btn-sm">Add</button>
+          <span class="form-help">Creates a profile and enrolls them.</span>
+        </div>
+      </form>
+    </section>
+
+    <section class="side-block">
+      <div class="eyebrow eyebrow--accent">From Registry</div>
+      <h3 class="side-block__title">Existing Player</h3>
+      <form method="post" action="{{ url_for('tournaments.add_player', tid=t.id) }}" id="registry-form" class="form-stack">
+        <input type="hidden" name="profile_id" id="registry-pid" required>
+        <div class="form-field">
+          <div class="autocomplete">
+            <input type="text" class="form-control" id="registry-search"
+                   placeholder="Search by name or ID…" autocomplete="off">
+            <div class="autocomplete__results" id="registry-results" style="display:none"></div>
           </div>
-          <form method="post" action="{{ url_for('tournaments.remove_player', tid=t.id, part_id=part.id) }}"
-                onsubmit="return confirm('Remove {{ part.profile.full_name }} from this tournament?')">
-            <button type="submit" class="btn btn-sm btn-outline-danger py-0">
-              <i class="bi bi-x-lg"></i>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-primary btn-sm" id="registry-btn" disabled>Enroll</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="side-block side-block--cta">
+      <div class="eyebrow eyebrow--accent">Lock In</div>
+      <h3 class="side-block__title">Generate Bracket</h3>
+      {% if t.num_players >= 2 %}
+        {% set min_players = 4 if t.bracket_type == 'double' else 2 %}
+        {% if t.num_players >= min_players %}
+          <form method="post" action="{{ url_for('tournaments.generate', tid=t.id) }}"
+                onsubmit="return confirm('Lock in {{ t.num_players }} players and generate {{ t.format_label }} bracket?')">
+            <button class="btn btn-primary btn-block">
+              Generate Bracket
+              <i class="bi bi-arrow-right"></i>
             </button>
           </form>
-        </li>
+          <p class="form-help" style="margin-top: 0.5rem;">Roster locks. Seeding: <strong style="color: var(--fg);">{{ t.seeding|capitalize }}</strong>.</p>
         {% else %}
-        <li class="list-group-item text-muted text-center py-3">No players yet.</li>
-        {% endfor %}
-      </ul>
-    </div>
-  </div>
+          <button class="btn btn-block" disabled style="opacity: 0.4;">Generate Bracket</button>
+          <p class="form-help" style="margin-top: 0.5rem; color: var(--accent);">Double elimination requires at least 4 players.</p>
+        {% endif %}
+      {% else %}
+        <button class="btn btn-block" disabled style="opacity: 0.4;">Generate Bracket</button>
+        <p class="form-help" style="margin-top: 0.5rem; color: var(--accent);">Add at least 2 players first.</p>
+      {% endif %}
+    </section>
+  </aside>
 </div>
 {% endblock %}
 
@@ -220,13 +198,13 @@
     });
 
     if (!matches.length) {
-      results.innerHTML = '<div class="list-group-item text-muted small">No matches</div>';
+      results.innerHTML = '<div class="autocomplete__empty">No matches</div>';
       results.style.display = 'block';
       return;
     }
 
     results.innerHTML = matches.slice(0, 20).map(p =>
-      '<button type="button" class="list-group-item list-group-item-action py-1" data-pid="' + p.id + '">' +
+      '<button type="button" class="autocomplete__item" data-pid="' + p.id + '">' +
         p.label + '</button>'
     ).join('');
     results.style.display = 'block';

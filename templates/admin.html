@@ -1,359 +1,319 @@
 {% extends 'base.html' %}
-{% block title %}Admin Panel — TourneyTracker{% endblock %}
+{% block title %}Admin — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-3 mb-4">
-  <h2 class="mb-0"><i class="bi bi-shield-lock-fill text-warning me-2"></i>Admin Panel</h2>
-  <span class="badge bg-secondary">{{ current_user.username }}</span>
-</div>
-
-<!-- Security note -->
-<div class="alert alert-info py-2 mb-4 d-flex gap-2 align-items-start">
-  <i class="bi bi-lock-fill mt-1 flex-shrink-0"></i>
-  <div class="small">
-    <strong>Passwords are hashed</strong> using PBKDF2-SHA256 (via Werkzeug). The database stores
-    a one-way hash — plain-text passwords are never saved and cannot be recovered.
-    This app runs over HTTP on a local network; do not expose port 5050 to the internet.
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">OPS · Admin · {{ current_user.username }}</div>
+    <h1 class="page-hero__title">Admin Panel</h1>
+    <p class="page-hero__sub">Full database view. Passwords hashed via PBKDF2-SHA256 (Werkzeug). This app is LAN-only — never expose it to the public internet.</p>
   </div>
-</div>
-
-<!-- Stats row -->
-<div class="row g-3 mb-4">
-  <div class="col-6 col-sm-3 col-lg">
-    <a href="#tournaments-table" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-trophy text-warning d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-warning">{{ stats.tournaments }}</div>
-          <div class="small text-muted">Tournaments</div>
-        </div>
-      </div>
-    </a>
-  </div>
-  <div class="col-6 col-sm-3 col-lg">
-    <a href="{{ url_for('tournaments.index') }}" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-door-open text-success d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-success">{{ stats.open }}</div>
-          <div class="small text-muted">Open for Registration</div>
-        </div>
-      </div>
-    </a>
-  </div>
-  <div class="col-6 col-sm-3 col-lg">
-    <a href="{{ url_for('tournaments.index') }}" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-play-circle text-primary d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-primary">{{ stats.in_progress }}</div>
-          <div class="small text-muted">Brackets In Progress</div>
-        </div>
-      </div>
-    </a>
-  </div>
-  <div class="col-6 col-sm-3 col-lg">
-    <a href="{{ url_for('tournaments.index') }}" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-check-circle text-info d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-info">{{ stats.complete }}</div>
-          <div class="small text-muted">Completed Tournaments</div>
-        </div>
-      </div>
-    </a>
-  </div>
-  <div class="col-6 col-sm-3 col-lg">
-    <a href="#players-table" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-people text-success d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-success">{{ stats.players }}</div>
-          <div class="small text-muted">Registered Players</div>
-        </div>
-      </div>
-    </a>
-  </div>
-  <div class="col-6 col-sm-3 col-lg">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-3">
-        <i class="bi bi-controller d-block mb-1" style="font-size:1.2rem"></i>
-        <div class="fs-2 fw-bold">{{ stats.matches }}</div>
-        <div class="small text-muted">Matches Played</div>
-      </div>
+  <div class="page-hero__stats">
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value page-hero__stat-value--accent">{{ '%02d' % stats.tournaments }}</div>
+      <div class="page-hero__stat-label">Tournaments</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % stats.players }}</div>
+      <div class="page-hero__stat-label">Players</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % stats.leagues }}</div>
+      <div class="page-hero__stat-label">Leagues</div>
     </div>
   </div>
-  <div class="col-6 col-sm-3 col-lg">
-    <a href="{{ url_for('leagues.league_list') }}" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-collection text-warning d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-warning">{{ stats.leagues }}</div>
-          <div class="small text-muted">Leagues</div>
-        </div>
-      </div>
-    </a>
+</header>
+
+<div class="stat-strip">
+  <div class="stat-cell">
+    <span class="stat-cell__label">Open</span>
+    <span class="stat-cell__value">{{ '%02d' % stats.open }}</span>
+    <span class="stat-cell__sub">Registration</span>
+  </div>
+  <div class="stat-cell stat-cell--accent">
+    <span class="stat-cell__label">Live</span>
+    <span class="stat-cell__value stat-cell__value--accent">{{ '%02d' % stats.in_progress }}</span>
+    <span class="stat-cell__sub">In progress</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">Complete</span>
+    <span class="stat-cell__value">{{ '%02d' % stats.complete }}</span>
+    <span class="stat-cell__sub">Archived</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">Matches</span>
+    <span class="stat-cell__value">{{ '{:,}'.format(stats.matches) }}</span>
+    <span class="stat-cell__sub">Recorded</span>
+  </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">Players</span>
+    <span class="stat-cell__value">{{ '%02d' % stats.players }}</span>
+    <span class="stat-cell__sub">Registered</span>
   </div>
 </div>
 
-<div class="row g-4 mb-5">
+<div class="admin-grid">
 
-  <!-- Change Password -->
-  <div class="col-md-4">
-    <div class="card shadow-sm h-100">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-key-fill me-2"></i>Change Your Password
-        <span class="text-muted fw-normal small ms-1">({{ current_user.username }})</span>
+  <section class="admin-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Change Password</h2>
+      <span class="section-head__count">{{ current_user.username }}</span>
+    </div>
+    <form method="post" action="{{ url_for('settings.change_password') }}" class="form-stack" autocomplete="off">
+      <div class="form-field">
+        <label class="form-label" for="a-cur">Current</label>
+        <input id="a-cur" type="password" name="current_password" class="form-control" required autocomplete="current-password">
       </div>
-      <div class="card-body">
-        <form method="post" action="{{ url_for('settings.change_password') }}">
-          <div class="mb-3">
-            <label class="form-label small">Current Password</label>
-            <input type="password" name="current_password" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small">New Password <span class="text-muted">(min 6 chars)</span></label>
-            <input type="password" name="new_password" class="form-control" required minlength="6">
-          </div>
-          <div class="mb-3">
-            <label class="form-label small">Confirm New Password</label>
-            <input type="password" name="confirm_password" class="form-control" required minlength="6">
-          </div>
-          <button type="submit" class="btn btn-warning w-100 fw-bold">
-            <i class="bi bi-check-circle me-1"></i>Update Password
-          </button>
+      <div class="form-field">
+        <label class="form-label" for="a-new">New <span class="form-label__opt">· min 6</span></label>
+        <input id="a-new" type="password" name="new_password" class="form-control" required minlength="6" autocomplete="new-password">
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="a-conf">Confirm</label>
+        <input id="a-conf" type="password" name="confirm_password" class="form-control" required minlength="6" autocomplete="new-password">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block">
+          Update Password
+          <i class="bi bi-arrow-right"></i>
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="admin-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Accounts</h2>
+      <span class="section-head__count">{{ admins|length }}</span>
+    </div>
+    <ul class="delegate-list">
+      {% for a in admins %}
+      <li class="delegate-list__item">
+        <span class="delegate-list__name">
+          <span class="status-dot {{ 'status-dot--live' if a.is_admin else 'status-dot--done' }}"></span>
+          {{ a.username }}
+          <span class="tag tag--ghost" style="margin-left: 0.35rem;">{{ a.role }}</span>
+          {% if a.id == current_user.id %}<span class="tag tag--accent" style="margin-left: 0.25rem;">You</span>{% endif %}
+        </span>
+        {% if a.id != current_user.id %}
+        <form method="post" action="{{ url_for('admin.admin_delete_admin', aid=a.id) }}"
+              onsubmit="return confirm('Remove {{ a.role }} {{ a.username }}?')">
+          <button class="btn btn-outline-danger btn-xs">Remove</button>
         </form>
-      </div>
-    </div>
-  </div>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
 
-  <!-- User Accounts -->
-  <div class="col-md-4">
-    <div class="card shadow-sm mb-3">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-people-fill me-2"></i>User Accounts
+    <form method="post" action="{{ url_for('admin.admin_add_user') }}" class="form-stack" style="margin-top: 1.25rem;">
+      <div class="eyebrow eyebrow--accent">Add Account</div>
+      <div class="form-field form-field--row">
+        <input type="text" name="username" class="form-control" placeholder="Username" required>
+        <select name="role" class="form-select">
+          <option value="manager">Manager</option>
+          <option value="admin">Admin</option>
+        </select>
       </div>
-      <ul class="list-group list-group-flush">
-        {% for a in admins %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <div>
-            <i class="bi bi-person-badge me-2 text-warning"></i>
-            <strong>{{ a.username }}</strong>
-            <span class="badge {% if a.is_admin %}bg-danger{% else %}bg-info{% endif %} ms-1 small">
-              {{ a.role|capitalize }}
-            </span>
-            {% if a.id == current_user.id %}
-              <span class="badge bg-primary ms-1 small">you</span>
-            {% endif %}
-          </div>
-          {% if a.id != current_user.id %}
-          <form method="post" action="{{ url_for('admin.admin_delete_admin', aid=a.id) }}"
-                onsubmit="return confirm('Remove {{ a.role }} {{ a.username }}?')">
-            <button class="btn btn-sm btn-outline-danger py-0">
-              <i class="bi bi-trash"></i>
-            </button>
-          </form>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
+      <div class="form-field">
+        <input type="password" name="password" class="form-control" placeholder="Password (min 6 chars)" required minlength="6">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-outline-primary btn-sm">Create Account</button>
+      </div>
+    </form>
+  </section>
 
-    <!-- Add Account -->
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-person-plus-fill me-2"></i>Add Account
-      </div>
-      <div class="card-body">
-        <form method="post" action="{{ url_for('admin.admin_add_user') }}">
-          <div class="mb-2">
-            <input type="text" name="username" class="form-control form-control-sm"
-                   placeholder="Username" required>
-          </div>
-          <div class="mb-2">
-            <input type="password" name="password" class="form-control form-control-sm"
-                   placeholder="Password (min 6 chars)" required minlength="6">
-          </div>
-          <div class="mb-3">
-            <select name="role" class="form-select form-select-sm">
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <button type="submit" class="btn btn-outline-success btn-sm w-100">
-            <i class="bi bi-plus-circle me-1"></i>Create Account
-          </button>
-        </form>
-      </div>
+  <section class="admin-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Quick Links</h2>
     </div>
-  </div>
-
-  <!-- Quick links -->
-  <div class="col-md-4">
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold"><i class="bi bi-grid me-2"></i>Quick Links</div>
-      <div class="card-body d-flex flex-column gap-2">
-        <a href="{{ url_for('tournaments.index') }}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-house me-1"></i>Home
-        </a>
-        <a href="{{ url_for('leagues.league_list') }}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-collection me-1"></i>Leagues
-        </a>
-        <a href="{{ url_for('rankings.rankings') }}" class="btn btn-outline-secondary btn-sm">
-          <i class="bi bi-bar-chart me-1"></i>Rankings
-        </a>
-      </div>
+    <div class="quicklink-stack">
+      <a href="{{ url_for('tournaments.index') }}" class="quicklink">
+        <span class="eyebrow">Home</span>
+        <span class="quicklink__title">Tournament Index</span>
+      </a>
+      <a href="{{ url_for('leagues.league_list') }}" class="quicklink">
+        <span class="eyebrow">Registry</span>
+        <span class="quicklink__title">All Leagues</span>
+      </a>
+      <a href="{{ url_for('rankings.rankings') }}" class="quicklink">
+        <span class="eyebrow">Standings</span>
+        <span class="quicklink__title">Rankings</span>
+      </a>
     </div>
-  </div>
+  </section>
 
 </div>
 
-<!-- ═══ Tournaments DB ═══ -->
-<h5 class="mb-3 text-warning" id="tournaments-table"><i class="bi bi-diagram-3 me-2"></i>All Tournaments</h5>
-<div class="table-responsive mb-5">
-  <table class="table table-hover align-middle">
+<section style="margin-top: 3rem;" id="tournaments-table">
+  <div class="section-head">
+    <h2 class="section-head__title">All Tournaments</h2>
+    <span class="section-head__count">{{ tournaments|length }}</span>
+  </div>
+  <div class="table-responsive">
+  <table class="rank-table admin-table">
     <thead>
       <tr>
-        <th>#</th>
+        <th class="rank-cell">#</th>
         <th>Name</th>
         <th>League</th>
         <th>Owner</th>
         <th>Date</th>
         <th>Format</th>
-        <th class="text-center">Status</th>
-        <th class="text-center">Players</th>
-        <th class="text-center">Buy-in</th>
+        <th>Status</th>
+        <th>Players</th>
+        <th>Buy-in</th>
         <th>Champion</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for t in tournaments %}
-      <tr>
-        <td class="text-muted small">{{ t.id }}</td>
-        <td class="fw-semibold">{{ t.name }}</td>
-        <td class="small">{{ t.league.name if t.league else '—' }}</td>
-        <td class="small">{{ t.owner.username if t.owner else '—' }}</td>
-        <td class="text-muted small">{{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else '—' }}</td>
-        <td class="small">{{ t.format_label }}{% if t.fargo_rated %} <span class="fargo-badge">F</span>{% endif %}</td>
-        <td class="text-center">
-          <span class="badge {% if t.status == 'complete' %}bg-secondary{% elif t.status == 'bracket' %}bg-primary{% else %}bg-success{% endif %}">
-            {{ t.status }}
-          </span>
-        </td>
-        <td class="text-center">{{ t.num_players }}</td>
-        <td class="text-center">${{ t.buyin }}</td>
-        <td class="small">
-          {% if t.champion %}<i class="bi bi-trophy-fill text-warning me-1"></i>{{ t.champion.full_name }}{% else %}—{% endif %}
-        </td>
-        <td class="text-end">
+      <tr style="--i: {{ loop.index0 }}">
+        <td class="rank-cell"><span class="rank-cell__num">{{ '%03d' % t.id }}</span></td>
+        <td><div class="rank-player__name">{{ t.name }}</div></td>
+        <td style="color: var(--fg-mute);">{{ t.league.name if t.league else '—' }}</td>
+        <td style="color: var(--fg-mute);">{{ t.owner.username if t.owner else '—' }}</td>
+        <td style="color: var(--fg-mute);">{{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else '—' }}</td>
+        <td>{{ t.format_label }}{% if t.fargo_rated %} <span class="fargo-badge">F</span>{% endif %}</td>
+        <td>
           {% if t.status == 'open' %}
-            <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Manage</a>
+            <span class="tag tag--accent">Open</span>
+          {% elif t.status == 'bracket' %}
+            <span class="tag tag--live"><span class="status-dot status-dot--live"></span>Live</span>
           {% else %}
-            <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-xs btn-outline-secondary">Bracket</a>
+            <span class="tag">Complete</span>
+          {% endif %}
+        </td>
+        <td>{{ t.num_players }}</td>
+        <td>${{ t.buyin }}</td>
+        <td>
+          {% if t.champion %}
+            <span style="font-family: var(--font-sans); color: var(--accent); letter-spacing: -0.005em;">{{ t.champion.full_name }}</span>
+          {% else %}
+            <span style="color: var(--fg-dim);">—</span>
+          {% endif %}
+        </td>
+        <td class="rank-table__actions">
+          {% if t.status == 'open' %}
+            <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-xs">Manage</a>
+          {% else %}
+            <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-outline-secondary btn-xs">Bracket</a>
           {% endif %}
           <form method="post" action="{{ url_for('tournaments.delete_tournament', tid=t.id) }}"
                 class="d-inline" onsubmit="return confirm('Delete {{ t.name }}?')">
-            <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-outline-danger btn-xs" aria-label="Delete"><i class="bi bi-trash"></i></button>
           </form>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="11" class="text-muted text-center">No tournaments yet.</td></tr>
+      <tr><td colspan="11" style="color: var(--fg-dim); text-align: center; padding: 2rem;">No tournaments yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
-</div>
+  </div>
+</section>
 
-<!-- ═══ Players DB ═══ -->
-<h5 class="mb-3 text-info" id="players-table"><i class="bi bi-people-fill me-2"></i>All Players</h5>
-<div class="table-responsive">
-  <table class="table table-hover align-middle">
+<section style="margin-top: 3rem;" id="players-table">
+  <div class="section-head">
+    <h2 class="section-head__title">All Players</h2>
+    <span class="section-head__count">{{ players|length }}</span>
+  </div>
+  <div class="table-responsive">
+  <table class="rank-table admin-table">
     <thead>
       <tr>
-        <th>#</th>
+        <th class="rank-cell">#</th>
         <th>Name</th>
         <th>League</th>
         <th>Phone</th>
         <th>Email</th>
-        <th class="text-center">Fargo</th>
-        <th class="text-center">Titles</th>
-        <th class="text-center">Match Wins</th>
-        <th class="text-center">Tournaments</th>
+        <th>Fargo</th>
+        <th>Titles</th>
+        <th>Match Wins</th>
+        <th>Entered</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for p in players %}
-      <tr>
-        <td class="text-muted small">{{ p.id }}</td>
-        <td class="fw-semibold">{{ p.full_name }}</td>
-        <td class="small">{{ p.league.name if p.league else '—' }}</td>
-        <td class="text-muted small">{{ p.phone or '—' }}</td>
-        <td class="text-muted small">{{ p.email or '—' }}</td>
-        <td class="text-center">
+      <tr style="--i: {{ loop.index0 }}">
+        <td class="rank-cell"><span class="rank-cell__num">{{ '%03d' % p.id }}</span></td>
+        <td><div class="rank-player__name">{{ p.full_name }}</div></td>
+        <td style="color: var(--fg-mute);">{{ p.league.name if p.league else '—' }}</td>
+        <td style="color: var(--fg-mute);">{{ p.phone or '—' }}</td>
+        <td style="color: var(--fg-mute);">{{ p.email or '—' }}</td>
+        <td>
           {% if p.fargo_rating %}
-            <span class="fargo-badge" style="font-size:0.75rem">{{ p.fargo_rating }}</span>
-          {% else %}—{% endif %}
+            <span class="fargo-badge">{{ p.fargo_rating }}</span>
+          {% else %}
+            <span style="color: var(--fg-dim);">—</span>
+          {% endif %}
         </td>
-        <td class="text-center">
-          {% if p.tournament_wins %}<span class="badge bg-warning text-dark">{{ p.tournament_wins }}</span>{% else %}—{% endif %}
+        <td>
+          {% if p.tournament_wins %}
+            <span class="rank-titles">{{ p.tournament_wins }}</span>
+          {% else %}
+            <span class="rank-titles rank-titles--zero">0</span>
+          {% endif %}
         </td>
-        <td class="text-center">{{ p.match_wins }}</td>
-        <td class="text-center">{{ p.tournaments_entered }}</td>
-        <td class="text-end">
+        <td>{{ p.match_wins }}</td>
+        <td style="color: var(--fg-mute);">{{ p.tournaments_entered }}</td>
+        <td class="rank-table__actions">
           {% if p.league_id %}
           <a href="{{ url_for('players.edit_player_profile', lid=p.league_id, pid=p.id) }}"
-             class="btn btn-xs btn-outline-secondary">
+             class="btn btn-outline-secondary btn-xs" aria-label="Edit">
             <i class="bi bi-pencil"></i>
           </a>
           <form method="post" action="{{ url_for('players.delete_player_profile', lid=p.league_id, pid=p.id) }}"
                 class="d-inline" onsubmit="return confirm('Remove {{ p.full_name }}?')">
-            <button class="btn btn-xs btn-outline-danger"><i class="bi bi-trash"></i></button>
+            <button class="btn btn-outline-danger btn-xs" aria-label="Delete"><i class="bi bi-trash"></i></button>
           </form>
           {% endif %}
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="10" class="text-muted text-center">No players yet.</td></tr>
+      <tr><td colspan="10" style="color: var(--fg-dim); text-align: center; padding: 2rem;">No players yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
-</div>
+  </div>
+</section>
 
-<!-- ═══ Leagues DB ═══ -->
-<h5 class="mb-3 mt-5 text-warning"><i class="bi bi-collection-fill me-2"></i>All Leagues</h5>
-<div class="table-responsive">
-  <table class="table table-hover align-middle">
+<section style="margin-top: 3rem; padding-bottom: 3rem;">
+  <div class="section-head">
+    <h2 class="section-head__title">All Leagues</h2>
+    <span class="section-head__count">{{ leagues|length }}</span>
+  </div>
+  <div class="table-responsive">
+  <table class="rank-table admin-table">
     <thead>
       <tr>
-        <th>#</th>
+        <th class="rank-cell">#</th>
         <th>Name</th>
         <th>Owner</th>
-        <th class="text-center">Tournaments</th>
-        <th class="text-center">Players</th>
+        <th>Tournaments</th>
+        <th>Players</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for lg in leagues %}
-      <tr>
-        <td class="text-muted small">{{ lg.id }}</td>
-        <td class="fw-semibold">{{ lg.name }}</td>
-        <td class="small">{{ lg.owner.username }}</td>
-        <td class="text-center">{{ lg.tournaments|length }}</td>
-        <td class="text-center">{{ lg.players|length }}</td>
-        <td class="text-end">
-          <a href="{{ url_for('leagues.league_dashboard', lid=lg.id) }}" class="btn btn-xs btn-outline-secondary">
-            <i class="bi bi-speedometer2 me-1"></i>Dashboard
-          </a>
+      <tr style="--i: {{ loop.index0 }}">
+        <td class="rank-cell"><span class="rank-cell__num">{{ '%03d' % lg.id }}</span></td>
+        <td><div class="rank-player__name">{{ lg.name }}</div></td>
+        <td style="color: var(--fg-mute);">{{ lg.owner.username }}</td>
+        <td>{{ lg.tournaments|length }}</td>
+        <td>{{ lg.players|length }}</td>
+        <td class="rank-table__actions">
+          <a href="{{ url_for('leagues.league_dashboard', lid=lg.id) }}" class="btn btn-outline-secondary btn-xs">Dashboard</a>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="text-muted text-center">No leagues yet.</td></tr>
+      <tr><td colspan="6" style="color: var(--fg-dim); text-align: center; padding: 2rem;">No leagues yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>
-</div>
-
+  </div>
+</section>
 {% endblock %}

@@ -1,53 +1,97 @@
 {% extends 'base.html' %}
-{% block title %}My Leagues — TourneyTracker{% endblock %}
+{% block title %}Leagues — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
-  <h2 class="mb-0"><i class="bi bi-collection-fill text-warning me-2"></i>My Leagues</h2>
-  <a href="{{ url_for('leagues.new_league') }}" class="btn btn-warning">
-    <i class="bi bi-plus-circle me-1"></i>New League
-  </a>
-</div>
+{% set total_tournaments = leagues|map(attribute='tournaments')|map('length')|sum if leagues else 0 %}
+{% set total_players = leagues|map(attribute='players')|map('length')|sum if leagues else 0 %}
 
-{% if leagues %}
-<div class="row g-3">
-  {% for lg in leagues %}
-  <div class="col-md-6 col-lg-4">
-    <div class="card h-100 shadow-sm">
-      <div class="card-body">
-        <h5 class="card-title mb-1">
-          <i class="bi bi-collection me-2 text-warning"></i>{{ lg.name }}
-        </h5>
-        <p class="text-muted small mb-2">
-          Owner: <strong>{{ lg.owner.username }}</strong>
-          {% if lg.owner_id != current_user.id %}
-            <span class="badge bg-info ms-1" style="font-size:0.6rem">Shared</span>
-          {% endif %}
-        </p>
-        <div class="d-flex gap-3 text-muted small mb-0">
-          <span><i class="bi bi-trophy me-1"></i>{{ lg.tournaments|length }} tournaments</span>
-          <span><i class="bi bi-people me-1"></i>{{ lg.players|length }} players</span>
-        </div>
-      </div>
-      <div class="card-footer d-flex gap-2">
-        <a href="{{ url_for('leagues.league_dashboard', lid=lg.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
-          <i class="bi bi-speedometer2 me-1"></i>Dashboard
-        </a>
-        <a href="{{ url_for('players.players', lid=lg.id) }}" class="btn btn-sm btn-outline-secondary">
-          <i class="bi bi-people me-1"></i>Players
-        </a>
-        <a href="{{ url_for('rankings.league_rankings', lid=lg.id) }}" class="btn btn-sm btn-outline-secondary">
-          <i class="bi bi-bar-chart me-1"></i>Rankings
-        </a>
-      </div>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">OPS · League Registry</div>
+    <h1 class="page-hero__title">Leagues</h1>
+    <p class="page-hero__sub">Every league you own or share. Drill into a dashboard for bracket history, player rolls, and standings.</p>
+    <div class="page-hero__cta">
+      <a href="{{ url_for('leagues.new_league') }}" class="btn btn-primary">
+        New League
+        <i class="bi bi-arrow-right"></i>
+      </a>
     </div>
   </div>
-  {% endfor %}
-</div>
-{% else %}
-<div class="text-center py-5 text-muted">
-  <i class="bi bi-collection display-1"></i>
-  <p class="mt-3 fs-5">No leagues yet. <a href="{{ url_for('leagues.new_league') }}">Create your first league.</a></p>
-</div>
-{% endif %}
+  <div class="page-hero__stats">
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value page-hero__stat-value--accent">{{ '%02d' % (leagues|length) }}</div>
+      <div class="page-hero__stat-label">Leagues</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % total_tournaments }}</div>
+      <div class="page-hero__stat-label">Tournaments</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % total_players }}</div>
+      <div class="page-hero__stat-label">Players</div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2 class="section-head__title">Registry</h2>
+    <span class="section-head__count">{{ leagues|length }} league{{ 's' if leagues|length != 1 else '' }}</span>
+  </div>
+
+  {% if leagues %}
+  <div class="tourney-list">
+    {% for lg in leagues %}
+    <article class="tourney-row" style="--i: {{ loop.index0 }}">
+      <div class="tourney-row__title">
+        <h3 class="tourney-row__name">{{ lg.name }}</h3>
+        <div class="tourney-row__meta">
+          <span class="tag">{{ lg.owner.username }}</span>
+          {% if lg.owner_id != current_user.id %}
+            <span class="tag tag--ghost">Shared</span>
+          {% else %}
+            <span class="tag tag--accent">Owner</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Tournaments</span>
+        <span>{{ '%02d' % (lg.tournaments|length) }}</span>
+      </div>
+
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Players</span>
+        <span>{{ '%02d' % (lg.players|length) }}</span>
+      </div>
+
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Role</span>
+        {% if lg.owner_id == current_user.id %}
+          <span class="tourney-row__cell--accent">Owner</span>
+        {% else %}
+          <span class="tourney-row__cell--mute">Member</span>
+        {% endif %}
+      </div>
+
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">ID</span>
+        <span class="tourney-row__cell--mute">#{{ '%03d' % lg.id }}</span>
+      </div>
+
+      <div class="tourney-row__actions">
+        <a href="{{ url_for('leagues.league_dashboard', lid=lg.id) }}" class="btn btn-outline-primary btn-sm">Dashboard</a>
+        <a href="{{ url_for('players.players', lid=lg.id) }}" class="btn btn-outline-secondary btn-sm">Players</a>
+        <a href="{{ url_for('rankings.league_rankings', lid=lg.id) }}" class="btn btn-outline-secondary btn-sm">Rankings</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty__mark">No Leagues Yet</div>
+    <a href="{{ url_for('leagues.new_league') }}">Create your first league →</a>
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

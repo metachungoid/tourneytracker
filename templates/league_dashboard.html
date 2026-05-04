@@ -2,115 +2,152 @@
 {% block title %}{{ league.name }} — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
-  <h2 class="mb-0"><i class="bi bi-collection-fill text-warning me-2"></i>{{ league.name }}</h2>
-  <a href="{{ url_for('leagues.edit_league', lid=league.id) }}" class="btn btn-sm btn-outline-secondary">
-    <i class="bi bi-pencil me-1"></i>Edit
-  </a>
-</div>
+{% set upcoming = tournaments|selectattr('status', 'ne', 'complete')|list %}
+{% set complete = tournaments|selectattr('status', 'equalto', 'complete')|list %}
+{% set total_pool = tournaments|sum(attribute='prize_pool') if tournaments else 0 %}
 
-<!-- Stats -->
-<div class="row g-3 mb-4">
-  <div class="col-6 col-sm-3">
-    <a href="#league-tournaments" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-trophy text-warning d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-warning">{{ tournaments|length }}</div>
-          <div class="small text-muted">Tournaments</div>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">OPS · League #{{ '%03d' % league.id }}</div>
+    <h1 class="page-hero__title">{{ league.name }}</h1>
+    <p class="page-hero__sub">
+      Bracket history, player roll, and standings for this league. Owner:
+      <strong style="color: var(--fg);">{{ league.owner.username }}</strong>.
+    </p>
+    <div class="page-hero__cta cluster">
+      <a href="{{ url_for('tournaments.new_tournament', lid=league.id) }}" class="btn btn-primary">
+        New Tournament
+        <i class="bi bi-arrow-right"></i>
+      </a>
+      <a href="{{ url_for('leagues.edit_league', lid=league.id) }}" class="btn btn-outline-secondary btn-sm">Rename</a>
+    </div>
+  </div>
+  <div class="page-hero__stats">
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value page-hero__stat-value--accent">{{ '%02d' % (tournaments|length) }}</div>
+      <div class="page-hero__stat-label">Tournaments</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % player_count }}</div>
+      <div class="page-hero__stat-label">Players</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">${{ '{:,}'.format(total_pool) }}</div>
+      <div class="page-hero__stat-label">Total Pool</div>
+    </div>
+  </div>
+</header>
+
+<section class="section-quicknav">
+  <a href="{{ url_for('players.players', lid=league.id) }}" class="section-quicknav__link">
+    <span class="eyebrow">Roster</span>
+    <span class="section-quicknav__title">Player Registry</span>
+    <span class="section-quicknav__meta">{{ '%02d' % player_count }} registered</span>
+  </a>
+  <a href="{{ url_for('rankings.league_rankings', lid=league.id) }}" class="section-quicknav__link">
+    <span class="eyebrow">Leaderboard</span>
+    <span class="section-quicknav__title">Rankings</span>
+    <span class="section-quicknav__meta">League Standings</span>
+  </a>
+  <a href="#league-tournaments" class="section-quicknav__link">
+    <span class="eyebrow">Bracket</span>
+    <span class="section-quicknav__title">Tournaments</span>
+    <span class="section-quicknav__meta">{{ upcoming|length }} active · {{ complete|length }} done</span>
+  </a>
+</section>
+
+<section id="league-tournaments">
+  <div class="section-head">
+    <h2 class="section-head__title">Tournaments</h2>
+    <span class="section-head__count">{{ tournaments|length }} total</span>
+  </div>
+
+  {% if tournaments %}
+  <div class="tourney-list">
+    {% for t in tournaments %}
+    <article class="tourney-row{% if t.status == 'complete' %} tourney-row--past{% endif %}" style="--i: {{ loop.index0 }}">
+      <div class="tourney-row__title">
+        <h3 class="tourney-row__name">{{ t.name }}</h3>
+        <div class="tourney-row__meta">
+          {% if t.status == 'open' %}
+            <span class="tag tag--live"><span class="status-dot status-dot--live"></span>Open</span>
+          {% elif t.status == 'bracket' %}
+            <span class="tag tag--accent"><span class="status-dot status-dot--live"></span>Live</span>
+          {% else %}
+            <span class="tag"><span class="status-dot status-dot--done"></span>Complete</span>
+          {% endif %}
+          <span class="tag">{{ t.format_label }}</span>
+          <span class="tag">{{ 'Double Elim' if t.is_double else 'Single Elim' }}</span>
         </div>
       </div>
-    </a>
-  </div>
-  <div class="col-6 col-sm-3">
-    <a href="{{ url_for('players.players', lid=league.id) }}" class="text-decoration-none">
-      <div class="card text-center border-0 bg-dark text-white stat-card">
-        <div class="card-body py-3">
-          <i class="bi bi-people text-success d-block mb-1" style="font-size:1.2rem"></i>
-          <div class="fs-2 fw-bold text-success">{{ player_count }}</div>
-          <div class="small text-muted">Registered Players</div>
-        </div>
+
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Date</span>
+        <span>{{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else 'TBD' }}</span>
       </div>
-    </a>
-  </div>
-</div>
 
-<!-- Actions -->
-<div class="d-flex gap-2 mb-4 flex-wrap">
-  <a href="{{ url_for('tournaments.new_tournament', lid=league.id) }}" class="btn btn-warning">
-    <i class="bi bi-plus-circle me-1"></i>New Tournament
-  </a>
-  <a href="{{ url_for('players.players', lid=league.id) }}" class="btn btn-outline-secondary">
-    <i class="bi bi-people me-1"></i>Player Registry
-  </a>
-  <a href="{{ url_for('rankings.league_rankings', lid=league.id) }}" class="btn btn-outline-secondary">
-    <i class="bi bi-bar-chart me-1"></i>Rankings
-  </a>
-</div>
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Players</span>
+        <span>{{ '%02d' % t.num_players }}</span>
+      </div>
 
-<!-- Tournaments -->
-<h4 class="mb-3" id="league-tournaments"><i class="bi bi-trophy me-2 text-info"></i>Tournaments</h4>
-{% if tournaments %}
-<div class="row g-3">
-  {% for t in tournaments %}
-  <div class="col-md-6 col-lg-4">
-    <div class="card h-100 shadow-sm {% if t.status == 'complete' %}opacity-75{% endif %}">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <h5 class="card-title mb-1">{{ t.name }}</h5>
-          <span class="badge {% if t.status == 'complete' %}bg-secondary{% elif t.status == 'bracket' %}bg-primary{% else %}bg-success{% endif %}">
-            {{ t.status|capitalize }}
-          </span>
-        </div>
-        <p class="text-muted small mb-1">
-          <i class="bi bi-calendar3 me-1"></i>
-          {{ t.tournament_date.strftime('%b %d, %Y') if t.tournament_date else 'Date TBD' }}
-          &nbsp;<span class="badge bg-secondary" style="font-size:0.65rem">{{ t.format_label }}</span>
-        </p>
-        <p class="text-muted small mb-2">
-          <i class="bi bi-people-fill me-1"></i>{{ t.num_players }} players
-        </p>
-        {% if t.champion %}
-        <p class="mb-0 fw-semibold text-warning">
-          <i class="bi bi-trophy-fill me-1"></i>{{ t.champion.full_name }}
-        </p>
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Pool</span>
+        {% if t.num_players > 0 %}
+          <span class="tourney-row__cell--accent">${{ '{:,}'.format(t.prize_pool) }}</span>
+        {% else %}
+          <span class="tourney-row__cell--mute">—</span>
         {% endif %}
       </div>
-      <div class="card-footer d-flex gap-2">
-        {% if t.status == 'open' %}
-          <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
-            <i class="bi bi-pencil me-1"></i>Manage
-          </a>
+
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Champion</span>
+        {% if t.champion %}
+          <span class="tourney-row__cell--accent" style="font-family: var(--font-sans); letter-spacing: -0.005em;">{{ t.champion.full_name }}</span>
         {% else %}
-          <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-sm btn-outline-primary flex-fill">
-            <i class="bi bi-diagram-3 me-1"></i>Bracket
-          </a>
+          <span class="tourney-row__cell--mute">—</span>
+        {% endif %}
+      </div>
+
+      <div class="tourney-row__actions">
+        {% if t.status == 'open' %}
+          <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-outline-primary btn-sm">Manage</a>
+        {% else %}
+          <a href="{{ url_for('tournaments.bracket', tid=t.id) }}" class="btn btn-outline-primary btn-sm">Bracket</a>
         {% endif %}
         <form method="post" action="{{ url_for('tournaments.delete_tournament', tid=t.id) }}"
               onsubmit="return confirm('Delete {{ t.name }}?')">
-          <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+          <button class="btn btn-outline-danger btn-sm" aria-label="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
         </form>
       </div>
-    </div>
+    </article>
+    {% endfor %}
   </div>
-  {% endfor %}
-</div>
-{% else %}
-<p class="text-muted">No tournaments yet.
-  <a href="{{ url_for('tournaments.new_tournament', lid=league.id) }}">Create your first!</a>
-</p>
-{% endif %}
+  {% else %}
+  <div class="empty">
+    <div class="empty__mark">No Tournaments Yet</div>
+    <a href="{{ url_for('tournaments.new_tournament', lid=league.id) }}">Create the first tournament →</a>
+  </div>
+  {% endif %}
+</section>
 
-<!-- Delete League -->
 {% if not tournaments and player_count == 0 %}
-<hr class="mt-5">
-<div class="text-end">
-  <form method="post" action="{{ url_for('leagues.delete_league', lid=league.id) }}"
-        onsubmit="return confirm('Delete league {{ league.name }}? This cannot be undone.')">
-    <button class="btn btn-sm btn-outline-danger">
-      <i class="bi bi-trash me-1"></i>Delete League
-    </button>
-  </form>
-</div>
+<section class="danger-zone">
+  <div class="danger-zone__mark">Danger Zone</div>
+  <div class="danger-zone__row">
+    <div>
+      <strong>Delete this league.</strong>
+      <p class="form-help">No players, no tournaments. Safe to remove.</p>
+    </div>
+    <form method="post" action="{{ url_for('leagues.delete_league', lid=league.id) }}"
+          onsubmit="return confirm('Delete league {{ league.name }}? This cannot be undone.')">
+      <button class="btn btn-outline-danger btn-sm">
+        <i class="bi bi-trash"></i> Delete League
+      </button>
+    </form>
+  </div>
+</section>
 {% endif %}
 {% endblock %}

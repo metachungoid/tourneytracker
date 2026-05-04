@@ -2,31 +2,45 @@
 {% block title %}{{ 'Edit League' if league else 'New League' }} — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
-    <h2 class="mb-4">
-      <i class="bi bi-collection-fill text-warning me-2"></i>
-      {{ 'Edit League' if league else 'New League' }}
-    </h2>
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <form method="post">
-          <div class="mb-4">
-            <label class="form-label fw-semibold">League Name <span class="text-danger">*</span></label>
-            <input type="text" name="name" class="form-control" required autofocus
-                   placeholder="e.g. Joe's Bar 8-Ball League"
-                   value="{{ league.name if league else '' }}">
-          </div>
-          <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-warning flex-fill">
-              <i class="bi bi-check-circle me-1"></i>{{ 'Save Changes' if league else 'Create League' }}
-            </button>
-            <a href="{{ url_for('leagues.league_dashboard', lid=league.id) if league else url_for('leagues.league_list') }}"
-               class="btn btn-outline-secondary">Cancel</a>
-          </div>
-        </form>
-      </div>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">
+      {% if league %}OPS · Editing League #{{ '%03d' % league.id }}{% else %}OPS · Provision League{% endif %}
     </div>
+    <h1 class="page-hero__title">{{ 'Edit League' if league else 'New League' }}</h1>
+    <p class="page-hero__sub">
+      {% if league %}
+        Rename an existing registry entry. Players, tournaments, and history are preserved.
+      {% else %}
+        Registries hold players, tournaments, and standings. Name it for the venue or circuit.
+      {% endif %}
+    </p>
   </div>
-</div>
+</header>
+
+<section class="form-panel">
+  <div class="section-head">
+    <h2 class="section-head__title">Details</h2>
+    <span class="section-head__count">01 / 01</span>
+  </div>
+
+  <form method="post" class="form-stack form-stack--wide">
+    <div class="form-field">
+      <label class="form-label" for="league-name">League Name <span class="form-label__req">*</span></label>
+      <input id="league-name" type="text" name="name" class="form-control" required autofocus
+             placeholder="e.g. Joe's Bar 8-Ball League"
+             value="{{ league.name if league else '' }}">
+      <span class="form-help">Shown in the navbar, rankings, and every bracket header.</span>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        {{ 'Save Changes' if league else 'Create League' }}
+        <i class="bi bi-arrow-right"></i>
+      </button>
+      <a href="{{ url_for('leagues.league_dashboard', lid=league.id) if league else url_for('leagues.league_list') }}"
+         class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</section>
 {% endblock %}

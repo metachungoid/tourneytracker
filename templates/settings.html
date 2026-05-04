@@ -2,124 +2,157 @@
 {% block title %}Settings — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center gap-3 mb-4">
-  <h2 class="mb-0"><i class="bi bi-gear-fill text-warning me-2"></i>Settings</h2>
-  <span class="badge {% if current_user.is_admin %}bg-danger{% else %}bg-info{% endif %}">
-    {{ current_user.role|capitalize }}
-  </span>
-</div>
-
-<div class="row g-4">
-
-  <!-- Change Password -->
-  <div class="col-md-5">
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-key-fill me-2"></i>Change Your Password
-        <span class="text-muted fw-normal small ms-1">({{ current_user.username }})</span>
-      </div>
-      <div class="card-body">
-        <form method="post" action="{{ url_for('settings.change_password') }}">
-          <div class="mb-3">
-            <label class="form-label small">Current Password</label>
-            <input type="password" name="current_password" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label small">New Password <span class="text-muted">(min 6 chars)</span></label>
-            <input type="password" name="new_password" class="form-control" required minlength="6">
-          </div>
-          <div class="mb-3">
-            <label class="form-label small">Confirm New Password</label>
-            <input type="password" name="confirm_password" class="form-control" required minlength="6">
-          </div>
-          <button type="submit" class="btn btn-warning w-100 fw-bold">
-            <i class="bi bi-check-circle me-1"></i>Update Password
-          </button>
-        </form>
-      </div>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">OPS · Account · {{ current_user.username }}</div>
+    <h1 class="page-hero__title">Settings</h1>
+    <p class="page-hero__sub">Rotate credentials and manage delegated access across your leagues.</p>
+  </div>
+  <div class="page-hero__stats">
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value page-hero__stat-value--accent">{{ current_user.role|capitalize }}</div>
+      <div class="page-hero__stat-label">Role</div>
     </div>
+    {% if current_user.is_manager %}
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % (leagues|length) }}</div>
+      <div class="page-hero__stat-label">Owned</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % (shared_with_me|length) }}</div>
+      <div class="page-hero__stat-label">Shared</div>
+    </div>
+    {% endif %}
+  </div>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2 class="section-head__title">Change Password</h2>
+    <span class="section-head__count">{{ current_user.username }}</span>
   </div>
 
-  {% if current_user.is_manager %}
-  <!-- Share Access (per-league) -->
-  <div class="col-md-7">
-
-    {% for lg in leagues %}
-    <div class="card shadow-sm mb-3">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-share-fill me-2"></i>{{ lg.name }}
-        <span class="text-muted fw-normal small ms-1">— shared access</span>
+  <form method="post" action="{{ url_for('settings.change_password') }}" class="form-stack form-stack--wide" autocomplete="off">
+    <div class="form-field">
+      <label class="form-label" for="current_password">Current Password <span class="form-label__req">*</span></label>
+      <input id="current_password" type="password" name="current_password" class="form-control" required autocomplete="current-password">
+    </div>
+    <div class="form-field form-field--row">
+      <div>
+        <label class="form-label" for="new_password">New Password <span class="form-label__req">*</span></label>
+        <input id="new_password" type="password" name="new_password" class="form-control" required minlength="6" autocomplete="new-password">
+        <span class="form-help">Minimum 6 characters.</span>
       </div>
+      <div>
+        <label class="form-label" for="confirm_password">Confirm New Password <span class="form-label__req">*</span></label>
+        <input id="confirm_password" type="password" name="confirm_password" class="form-control" required minlength="6" autocomplete="new-password">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        Update Password
+        <i class="bi bi-arrow-right"></i>
+      </button>
+    </div>
+  </form>
+</section>
+
+{% if current_user.is_manager %}
+<section style="margin-top: 3rem;">
+  <div class="section-head">
+    <h2 class="section-head__title">Shared Access</h2>
+    <span class="section-head__count">{{ leagues|length }} league{{ 's' if leagues|length != 1 else '' }}</span>
+  </div>
+
+  {% if leagues %}
+  <div class="share-list">
+    {% for lg in leagues %}
+    <div class="share-block" style="--i: {{ loop.index0 }}">
+      <header class="share-block__head">
+        <div>
+          <div class="eyebrow">League · #{{ '%03d' % lg.id }}</div>
+          <h3 class="share-block__title">{{ lg.name }}</h3>
+        </div>
+        <span class="tag tag--ghost">{{ lg.shares|length }} delegate{{ 's' if lg.shares|length != 1 else '' }}</span>
+      </header>
+
       {% if lg.shares %}
-      <ul class="list-group list-group-flush">
+      <ul class="delegate-list">
         {% for s in lg.shares %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <div>
-            <i class="bi bi-person-fill me-2 text-info"></i>
-            <strong>{{ s.delegate.username }}</strong>
-          </div>
+        <li class="delegate-list__item">
+          <span class="delegate-list__name">
+            <span class="status-dot status-dot--live"></span>
+            {{ s.delegate.username }}
+          </span>
           <form method="post" action="{{ url_for('settings.remove_delegate', share_id=s.id) }}">
-            <button class="btn btn-sm btn-outline-danger py-0" title="Revoke access">
-              <i class="bi bi-x-lg"></i>
+            <button class="btn btn-outline-danger btn-xs" title="Revoke access">
+              Revoke
             </button>
           </form>
         </li>
         {% endfor %}
       </ul>
       {% else %}
-      <div class="card-body text-muted small">
-        No delegates for this league.
-      </div>
+      <p class="share-block__empty eyebrow">No delegates</p>
       {% endif %}
 
       {% if other_managers %}
-      <div class="card-footer">
-        <form method="post" action="{{ url_for('settings.add_delegate') }}" class="d-flex gap-2">
-          <input type="hidden" name="league_id" value="{{ lg.id }}">
-          <select name="delegate_id" class="form-select form-select-sm" required>
-            <option value="">Grant access to...</option>
-            {% for m in other_managers %}
-            <option value="{{ m.id }}">{{ m.username }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit" class="btn btn-sm btn-outline-success flex-shrink-0">
-            <i class="bi bi-plus-circle me-1"></i>Share
-          </button>
-        </form>
-      </div>
+      <form method="post" action="{{ url_for('settings.add_delegate') }}" class="share-block__add">
+        <input type="hidden" name="league_id" value="{{ lg.id }}">
+        <select name="delegate_id" class="form-select" required>
+          <option value="">Grant access to…</option>
+          {% for m in other_managers %}
+          <option value="{{ m.id }}">{{ m.username }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-outline-primary btn-sm">
+          Share
+          <i class="bi bi-arrow-right"></i>
+        </button>
+      </form>
       {% endif %}
     </div>
     {% endfor %}
-
-    {% if not leagues %}
-    <div class="card shadow-sm mb-3">
-      <div class="card-body text-muted">
-        You don't own any leagues yet. <a href="{{ url_for('leagues.new_league') }}">Create one</a> to manage shared access.
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Shared With Me -->
-    {% if shared_with_me %}
-    <div class="card shadow-sm">
-      <div class="card-header fw-semibold">
-        <i class="bi bi-inbox-fill me-2"></i>Shared With You
-        <span class="text-muted fw-normal small ms-1">— you can manage these leagues</span>
-      </div>
-      <ul class="list-group list-group-flush">
-        {% for s in shared_with_me %}
-        <li class="list-group-item">
-          <i class="bi bi-collection me-2 text-warning"></i>
-          <strong>{{ s.league.name }}</strong>
-          <span class="text-muted small ms-1">by {{ s.league.owner.username }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-    {% endif %}
-
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty__mark">No Leagues Owned</div>
+    <a href="{{ url_for('leagues.new_league') }}">Create a league to manage access →</a>
   </div>
   {% endif %}
+</section>
 
-</div>
+{% if shared_with_me %}
+<section style="margin-top: 3rem;">
+  <div class="section-head">
+    <h2 class="section-head__title">Shared With You</h2>
+    <span class="section-head__count">{{ shared_with_me|length }}</span>
+  </div>
+  <div class="tourney-list">
+    {% for s in shared_with_me %}
+    <article class="tourney-row" style="--i: {{ loop.index0 }}">
+      <div class="tourney-row__title">
+        <h3 class="tourney-row__name">{{ s.league.name }}</h3>
+        <div class="tourney-row__meta">
+          <span class="tag tag--ghost">Delegated by {{ s.league.owner.username }}</span>
+          <span class="tag tag--accent">Manage Access</span>
+        </div>
+      </div>
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Tournaments</span>
+        <span>{{ '%02d' % (s.league.tournaments|length) }}</span>
+      </div>
+      <div class="tourney-row__cell">
+        <span class="tourney-row__cell-label">Players</span>
+        <span>{{ '%02d' % (s.league.players|length) }}</span>
+      </div>
+      <div class="tourney-row__actions">
+        <a href="{{ url_for('leagues.league_dashboard', lid=s.league.id) }}" class="btn btn-outline-primary btn-sm">Dashboard</a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endif %}
 {% endblock %}

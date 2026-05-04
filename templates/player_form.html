@@ -2,56 +2,70 @@
 {% block title %}{{ 'Edit' if player else 'Add' }} Player — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-md-6">
-    <h2 class="mb-4">
-      <i class="bi bi-person-{{ 'gear' if player else 'plus' }} text-warning me-2"></i>
-      {{ 'Edit Player' if player else 'Add Player' }}
-    </h2>
-    <div class="text-muted small mb-3">
-      <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">
+      OPS · <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a> · Roster
     </div>
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <form method="post">
-          <div class="row g-3 mb-3">
-            <div class="col">
-              <label class="form-label fw-semibold">First Name <span class="text-danger">*</span></label>
-              <input type="text" name="first_name" class="form-control" required autofocus
-                     value="{{ player.first_name if player else '' }}">
-            </div>
-            <div class="col">
-              <label class="form-label fw-semibold">Last Name</label>
-              <input type="text" name="last_name" class="form-control"
-                     value="{{ player.last_name if player else '' }}">
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Phone Number</label>
-            <input type="tel" name="phone" class="form-control" placeholder="e.g. 555-867-5309"
-                   value="{{ player.phone or '' if player else '' }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold">Email Address</label>
-            <input type="email" name="email" class="form-control" placeholder="player@example.com"
-                   value="{{ player.email or '' if player else '' }}">
-          </div>
-          <div class="mb-4">
-            <label class="form-label fw-semibold">Fargo Rating <span class="text-muted fw-normal">(optional)</span></label>
-            <input type="number" name="fargo_rating" class="form-control" placeholder="e.g. 512"
-                   min="1" max="999"
-                   value="{{ player.fargo_rating or '' if player else '' }}">
-            <div class="form-text">Leave blank if not Fargo rated.</div>
-          </div>
-          <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-warning flex-fill">
-              <i class="bi bi-check-circle me-1"></i>{{ 'Save Changes' if player else 'Add Player' }}
-            </button>
-            <a href="{{ url_for('players.players', lid=league.id) }}" class="btn btn-outline-secondary">Cancel</a>
-          </div>
-        </form>
+    <h1 class="page-hero__title">{{ 'Edit Player' if player else 'Add Player' }}</h1>
+    <p class="page-hero__sub">
+      {% if player %}
+        Update contact details and Fargo rating. Match and title counts are recomputed from brackets.
+      {% else %}
+        Register a new competitor. They become draftable in this league's tournaments.
+      {% endif %}
+    </p>
+  </div>
+</header>
+
+<section class="form-panel">
+  <div class="section-head">
+    <h2 class="section-head__title">{{ 'Edit Profile' if player else 'New Profile' }}</h2>
+    <span class="section-head__count">01 / 01</span>
+  </div>
+
+  <form method="post" class="form-stack form-stack--wide">
+    <div class="form-field form-field--row">
+      <div>
+        <label class="form-label" for="first_name">First Name <span class="form-label__req">*</span></label>
+        <input id="first_name" type="text" name="first_name" class="form-control" required autofocus
+               value="{{ player.first_name if player else '' }}">
+      </div>
+      <div>
+        <label class="form-label" for="last_name">Last Name</label>
+        <input id="last_name" type="text" name="last_name" class="form-control"
+               value="{{ player.last_name if player else '' }}">
       </div>
     </div>
-  </div>
-</div>
+
+    <div class="form-field form-field--row">
+      <div>
+        <label class="form-label" for="phone">Phone</label>
+        <input id="phone" type="tel" name="phone" class="form-control" placeholder="555-867-5309"
+               value="{{ player.phone or '' if player else '' }}">
+      </div>
+      <div>
+        <label class="form-label" for="email">Email</label>
+        <input id="email" type="email" name="email" class="form-control" placeholder="player@example.com"
+               value="{{ player.email or '' if player else '' }}">
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label" for="fargo_rating">Fargo Rating <span class="form-label__opt">· optional</span></label>
+      <input id="fargo_rating" type="number" name="fargo_rating" class="form-control mono-input" placeholder="512"
+             min="1" max="999"
+             value="{{ player.fargo_rating or '' if player else '' }}">
+      <span class="form-help">Leave blank if the player isn't Fargo rated.</span>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">
+        {{ 'Save Changes' if player else 'Add Player' }}
+        <i class="bi bi-arrow-right"></i>
+      </button>
+      <a href="{{ url_for('players.players', lid=league.id) }}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
+  </form>
+</section>
 {% endblock %}

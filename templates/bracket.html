@@ -104,151 +104,139 @@
 
 
 {% block content %}
-<!-- Header -->
-<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">
-  <h2 class="mb-0"><i class="bi bi-diagram-3-fill text-primary me-2"></i>{{ t.name }}</h2>
-  <span class="badge {% if t.status == 'complete' %}bg-secondary{% else %}bg-primary{% endif %} fs-6">
-    {{ t.status|capitalize }}
-  </span>
-  <span class="badge bg-info text-dark">{{ t.format_label }}</span>
-  {% if t.fargo_rated %}<span class="badge bg-purple">Fargo Rated</span>{% endif %}
-  {% if t.tournament_date %}
-    <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i>{{ t.tournament_date.strftime('%b %d, %Y') }}</span>
-  {% endif %}
-  {% if not current_user.is_authenticated and t.status != 'complete' %}
-    <span class="badge bg-danger live-badge" id="live-badge">
-      <i class="bi bi-broadcast me-1"></i>LIVE · refreshing in <span id="live-countdown">15</span>s
-    </span>
-  {% endif %}
-</div>
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">
+      OPS · {% if t.league %}<a href="{{ url_for('leagues.league_dashboard', lid=t.league.id) }}">{{ t.league.name }}</a> · {% endif %}Bracket
+    </div>
+    <h1 class="page-hero__title">{{ t.name }}</h1>
+    <div class="page-hero__tags">
+      {% if t.status == 'complete' %}
+        <span class="tag"><span class="status-dot status-dot--done"></span>Complete</span>
+      {% else %}
+        <span class="tag tag--live"><span class="status-dot status-dot--live"></span>Live</span>
+      {% endif %}
+      <span class="tag">{{ t.format_label }}</span>
+      <span class="tag">{{ 'Double Elim' if t.is_double else 'Single Elim' }}</span>
+      {% if t.fargo_rated %}<span class="tag tag--accent">Fargo Rated</span>{% endif %}
+      {% if t.tournament_date %}
+        <span class="tag tag--ghost">{{ t.tournament_date.strftime('%b %d, %Y') }}</span>
+      {% endif %}
+      {% if not current_user.is_authenticated and t.status != 'complete' %}
+        <span class="tag tag--live live-badge" id="live-badge">
+          <span class="status-dot status-dot--live"></span>
+          Auto-refresh <span id="live-countdown">15</span>s
+        </span>
+      {% endif %}
+    </div>
+  </div>
+</header>
 
-<!-- Stats row -->
-<div class="row g-3 mb-4">
-  <div class="col-6 col-sm">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-2">
-        <div class="fs-4 fw-bold">{{ t.num_players }}</div>
-        <div class="small text-muted">Players</div>
-      </div>
-    </div>
+<div class="stat-strip">
+  <div class="stat-cell">
+    <span class="stat-cell__label">Players</span>
+    <span class="stat-cell__value">{{ '%02d' % t.num_players }}</span>
+    <span class="stat-cell__sub">Drawn</span>
   </div>
-  <div class="col-6 col-sm">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-2">
-        <div class="fs-4 fw-bold">${{ t.buyin }}</div>
-        <div class="small text-muted">Buy-in</div>
-      </div>
-    </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">Buy-in</span>
+    <span class="stat-cell__value">${{ t.buyin }}</span>
+    <span class="stat-cell__sub">per player</span>
   </div>
-  <div class="col-6 col-sm">
-    <div class="card text-center border-0 bg-dark text-white">
-      <div class="card-body py-2">
-        {% if t.status == 'complete' %}
-          <div class="fs-4 fw-bold">{{ t.actual_table_cost|money }}</div>
-          <div class="small text-muted">Table Cost</div>
-          <div class="small text-info">{{ t.actual_games_played }} games played</div>
-        {% else %}
-          <div class="fs-4 fw-bold">{{ t.est_table_cost|money }}</div>
-          <div class="small text-muted">Est. Table Cost</div>
-          <div class="small text-info">{{ t.actual_table_cost|money }} actual so far</div>
-        {% endif %}
-      </div>
-    </div>
+  <div class="stat-cell">
+    <span class="stat-cell__label">{% if t.status == 'complete' %}Table Cost{% else %}Est. Table{% endif %}</span>
+    <span class="stat-cell__value">
+      {% if t.status == 'complete' %}{{ t.actual_table_cost|money }}{% else %}{{ t.est_table_cost|money }}{% endif %}
+    </span>
+    <span class="stat-cell__sub">
+      {% if t.status == 'complete' %}
+        {{ t.actual_games_played }} games
+      {% else %}
+        {{ t.actual_table_cost|money }} actual
+      {% endif %}
+    </span>
   </div>
-  <div class="col-6 col-sm">
-    <div class="card text-center border-0 bg-success text-white">
-      <div class="card-body py-2">
-        <div class="fs-4 fw-bold">${{ t.gross_pool }}</div>
-        {% if t.status == 'complete' %}
-          <div class="small">minus {{ t.actual_table_cost|money }} table costs</div>
-        {% else %}
-          <div class="small">minus est. table costs</div>
-        {% endif %}
-      </div>
-    </div>
+  <div class="stat-cell stat-cell--accent">
+    <span class="stat-cell__label">Gross Pool</span>
+    <span class="stat-cell__value stat-cell__value--accent">${{ t.gross_pool }}</span>
+    <span class="stat-cell__sub">
+      {% if t.status == 'complete' %}minus {{ t.actual_table_cost|money }} table{% else %}minus est. table{% endif %}
+    </span>
   </div>
-  <div class="col-6 col-sm">
-    <div class="card text-center border-0 bg-danger text-white">
-      <div class="card-body py-2">
-        {% for p in t.prize_payouts %}
-        <div class="{% if loop.first %}fs-5 fw-bold{% else %}small{% endif %}">
-          {{ p.label }}: ${{ p.amount }}
-        </div>
-        {% endfor %}
-        {% if t.status != 'complete' %}
-          <div class="small mt-1 opacity-75">based on est. table costs</div>
-        {% endif %}
-      </div>
-    </div>
+  <div class="stat-cell stat-cell--payouts">
+    <span class="stat-cell__label">Payouts</span>
+    {% for p in t.prize_payouts %}
+      <span class="stat-cell__payout {% if loop.first %}stat-cell__payout--first{% endif %}">
+        <span>{{ p.label }}</span><span>${{ p.amount }}</span>
+      </span>
+    {% endfor %}
   </div>
 </div>
 
 {% if t.race_to > 1 %}
-<div class="alert alert-info py-2 mb-3">
-  <i class="bi bi-bullseye me-1"></i><strong>{{ t.format_label }}</strong> — first player to win {{ t.race_to }} game{{ 's' if t.race_to > 1 else '' }} takes the match.
-  <span class="text-muted small ms-2">(~{{ t.est_games_per_match }} games/match avg, {{ t.table_fee|money }}/game table fee)</span>
+<div class="alert">
+  <strong>{{ t.format_label }}</strong> — first to {{ t.race_to }} game{{ 's' if t.race_to > 1 else '' }} takes the match.
+  <span style="color: var(--fg-mute); margin-left: 0.5rem;">~{{ t.est_games_per_match }} avg · {{ t.table_fee|money }}/game table fee</span>
 </div>
 {% endif %}
 {% if t.bracket_type == 'double' and (t.lb_race_to or 1) != (t.race_to or 1) %}
-<div class="alert alert-danger py-2 mb-3">
-  <i class="bi bi-arrow-down-circle me-1"></i><strong>Losers Bracket: {{ t.lb_format_label }}</strong> — first player to win {{ t.lb_race_to }} game{{ 's' if t.lb_race_to > 1 else '' }} takes the match.
+<div class="alert">
+  <strong>Losers Bracket · {{ t.lb_format_label }}</strong> — first to {{ t.lb_race_to }} game{{ 's' if t.lb_race_to > 1 else '' }} takes the LB match.
 </div>
 {% endif %}
 
-<!-- Champion banner -->
 {% if t.champion %}
-<div class="alert alert-warning text-center mb-4">
-  {% set payouts = t.prize_payouts %}
-  <div class="fs-5 fw-bold">
-    <i class="bi bi-trophy-fill me-2"></i>Champion: {{ t.champion.full_name }}
-    {% if payouts %}<span class="fs-6 fw-normal ms-2">— ${{ payouts[0].amount }}</span>{% endif %}
+{% set payouts = t.prize_payouts %}
+<section class="champion-slab">
+  <div class="champion-slab__mark">Champion</div>
+  <div>
+    <div class="champion-slab__name-eyebrow">Tournament winner</div>
+    <div class="champion-slab__name">{{ t.champion.full_name }}</div>
+    {% if t.runner_up %}
+    <div class="champion-slab__runner">
+      Runner-up <b>{{ t.runner_up.full_name }}</b>
+      {% if payouts|length > 1 %} &nbsp;·&nbsp; ${{ payouts[1].amount }}{% endif %}
+    </div>
+    {% endif %}
+    {% if payouts|length > 2 %}
+    <div class="champion-slab__payouts">
+      {% for p in payouts[2:] %}{{ p.label }} ${{ p.amount }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}{% endfor %}
+    </div>
+    {% endif %}
   </div>
-  {% if t.runner_up %}
-  <div class="mt-1">
-    <i class="bi bi-award me-1"></i>Runner-up: {{ t.runner_up.full_name }}
-    {% if payouts|length > 1 %}<span class="text-muted fs-6 ms-1">— ${{ payouts[1].amount }}</span>{% endif %}
-  </div>
+  {% if payouts %}
+  <div class="champion-slab__amount">${{ payouts[0].amount }}</div>
   {% endif %}
-  {% if payouts|length > 2 %}
-  <div class="mt-1 small text-muted">
-    {% for p in payouts[2:] %}{{ p.label }}: ${{ p.amount }}{% if not loop.last %} &nbsp;·&nbsp; {% endif %}{% endfor %}
-  </div>
-  {% endif %}
-</div>
+</section>
 {% endif %}
 
-<!-- Actions -->
-{% if can_manage %}
-<div class="d-flex gap-2 mb-4 flex-wrap">
-  <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left me-1"></i>Back to Roster
-  </a>
-  <a href="{{ url_for('tournaments.bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
-    <i class="bi bi-printer me-1"></i>Print / Share
-  </a>
-  <form method="post" action="{{ url_for('tournaments.reset_tournament', tid=t.id) }}"
-        onsubmit="return confirm('Reset bracket and reopen registration?')">
-    <button class="btn btn-outline-warning btn-sm">
-      <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Bracket
-    </button>
-  </form>
+<div class="cluster" style="margin: 1.5rem 0 1.5rem;">
+  {% if can_manage %}
+    <a href="{{ url_for('tournaments.tournament', tid=t.id) }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back to Roster
+    </a>
+    <a href="{{ url_for('tournaments.bracket_print', tid=t.id) }}" class="btn btn-outline-primary btn-sm" target="_blank">
+      <i class="bi bi-printer"></i> Print / Share
+    </a>
+    <form method="post" action="{{ url_for('tournaments.reset_tournament', tid=t.id) }}"
+          onsubmit="return confirm('Reset bracket and reopen registration?')">
+      <button class="btn btn-outline-warning btn-sm">
+        <i class="bi bi-arrow-counterclockwise"></i> Reset Bracket
+      </button>
+    </form>
+  {% else %}
+    <a href="{{ url_for('tournaments.index') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-left"></i> Back
+    </a>
+    <a href="{{ url_for('tournaments.bracket_print', tid=t.id) }}" class="btn btn-outline-primary btn-sm" target="_blank">
+      <i class="bi bi-printer"></i> Print / Share
+    </a>
+  {% endif %}
 </div>
-{% else %}
-<div class="d-flex gap-2 mb-4">
-  <a href="{{ url_for('tournaments.index') }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-arrow-left me-1"></i>Back
-  </a>
-  <a href="{{ url_for('tournaments.bracket_print', tid=t.id) }}" class="btn btn-outline-info btn-sm" target="_blank">
-    <i class="bi bi-printer me-1"></i>Print / Share
-  </a>
-</div>
-{% endif %}
 
 <!-- ═══════════════════════════ WINNERS BRACKET ═══════════════════════════ -->
 {% if t.bracket_type == 'double' %}
-<h5 class="bracket-section-title text-primary mb-2">
-  <i class="bi bi-trophy me-2"></i>Winners Bracket
-</h5>
+<h5 class="bracket-section-title">Winners Bracket</h5>
 {% endif %}
 <div class="bracket-wrapper">
   <div class="bracket">
@@ -270,9 +258,7 @@
 
 <!-- ═══════════════════════════ LOSERS BRACKET ════════════════════════════ -->
 {% if t.bracket_type == 'double' and lb_rounds %}
-<h5 class="bracket-section-title text-danger mt-4 mb-2">
-  <i class="bi bi-arrow-down-circle me-2"></i>Losers Bracket
-</h5>
+<h5 class="bracket-section-title">Losers Bracket</h5>
 <div class="bracket-wrapper">
   <div class="bracket">
     {% for r in range(1, num_lb_rounds + 1) %}
@@ -291,9 +277,7 @@
 
 <!-- Grand Final -->
 {% if gf_match %}
-<h5 class="bracket-section-title text-warning mt-4 mb-2">
-  <i class="bi bi-star-fill me-2"></i>Grand Final
-</h5>
+<h5 class="bracket-section-title">Grand Final</h5>
 <div class="bracket-wrapper">
   <div class="bracket">
     <div class="bracket-round">

@@ -2,79 +2,105 @@
 {% block title %}Player Registry — {{ league.name }} — TourneyTracker{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center justify-content-between mb-4">
+{% set total_titles = players|sum(attribute='tournament_wins') if players else 0 %}
+{% set total_entries = players|sum(attribute='tournaments_entered') if players else 0 %}
+
+<header class="page-hero">
   <div>
-    <h2 class="mb-0"><i class="bi bi-people-fill text-warning me-2"></i>Player Registry</h2>
-    <div class="text-muted small mt-1">
-      <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a>
+    <div class="page-hero__mark">
+      OPS · <a href="{{ url_for('leagues.league_dashboard', lid=league.id) }}">{{ league.name }}</a> · Roster
+    </div>
+    <h1 class="page-hero__title">Player Registry</h1>
+    <p class="page-hero__sub">Every registered competitor in this league. Phone, Fargo, and title history.</p>
+    <div class="page-hero__cta">
+      <a href="{{ url_for('players.add_player_profile', lid=league.id) }}" class="btn btn-primary">
+        Add Player
+        <i class="bi bi-arrow-right"></i>
+      </a>
     </div>
   </div>
-  <a href="{{ url_for('players.add_player_profile', lid=league.id) }}" class="btn btn-warning">
-    <i class="bi bi-person-plus me-1"></i>Add Player
-  </a>
-</div>
+  <div class="page-hero__stats">
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value page-hero__stat-value--accent">{{ '%02d' % (players|length) }}</div>
+      <div class="page-hero__stat-label">Roster</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '%02d' % total_titles }}</div>
+      <div class="page-hero__stat-label">Titles</div>
+    </div>
+    <div class="page-hero__stat">
+      <div class="page-hero__stat-value">{{ '{:,}'.format(total_entries) }}</div>
+      <div class="page-hero__stat-label">Entries</div>
+    </div>
+  </div>
+</header>
 
 {% if players %}
 <div class="table-responsive">
-  <table class="table table-hover align-middle">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Name</th>
-        <th>Phone</th>
-        <th>Email</th>
-        <th class="text-center">Fargo</th>
-        <th class="text-center">Entered</th>
-        <th class="text-center">Match Wins</th>
-        <th class="text-center">Titles</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in players %}
-      <tr>
-        <td class="text-muted">{{ loop.index }}</td>
-        <td class="fw-semibold">
-          <i class="bi bi-person-circle me-2 text-muted"></i>{{ p.full_name }}
-        </td>
-        <td class="text-muted">{{ p.phone or '—' }}</td>
-        <td class="text-muted">{{ p.email or '—' }}</td>
-        <td class="text-center">
-          {% if p.fargo_rating %}<span class="fargo-badge" style="font-size:0.75rem">{{ p.fargo_rating }}</span>{% else %}—{% endif %}
-        </td>
-        <td class="text-center">{{ p.tournaments_entered }}</td>
-        <td class="text-center">{{ p.match_wins }}</td>
-        <td class="text-center">
-          {% if p.tournament_wins > 0 %}
-            <span class="badge bg-warning text-dark">
-              <i class="bi bi-trophy-fill me-1"></i>{{ p.tournament_wins }}
-            </span>
-          {% else %}—{% endif %}
-        </td>
-        <td class="text-end">
-          <a href="{{ url_for('players.edit_player_profile', lid=league.id, pid=p.id) }}"
-             class="btn btn-sm btn-outline-secondary me-1">
-            <i class="bi bi-pencil"></i>
-          </a>
-          {% if current_user.is_admin %}
-          <form method="post" action="{{ url_for('players.delete_player_profile', lid=league.id, pid=p.id) }}"
-                class="d-inline"
-                onsubmit="return confirm('Remove {{ p.full_name }} from the registry?')">
-            <button class="btn btn-sm btn-outline-danger">
-              <i class="bi bi-trash"></i>
-            </button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<table class="rank-table">
+  <thead>
+    <tr>
+      <th class="rank-cell">#</th>
+      <th>Player</th>
+      <th>Phone</th>
+      <th>Fargo</th>
+      <th>Entered</th>
+      <th>Match Wins</th>
+      <th>Titles</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in players %}
+    <tr style="--i: {{ loop.index0 }}">
+      <td class="rank-cell">
+        <span class="rank-cell__num">{{ '%02d' % loop.index }}</span>
+      </td>
+      <td>
+        <div class="rank-player__name">{{ p.full_name }}</div>
+        {% if p.email %}<div class="rank-player__email">{{ p.email }}</div>{% endif %}
+      </td>
+      <td style="color: var(--fg-mute);">{{ p.phone or '—' }}</td>
+      <td>
+        {% if p.fargo_rating %}
+          <span class="fargo-badge">{{ p.fargo_rating }}</span>
+        {% else %}
+          <span style="color: var(--fg-dim);">—</span>
+        {% endif %}
+      </td>
+      <td style="color: var(--fg-mute);">{{ p.tournaments_entered }}</td>
+      <td>{{ p.match_wins }}</td>
+      <td>
+        {% if p.tournament_wins > 0 %}
+          <span class="rank-titles">{{ p.tournament_wins }}</span>
+        {% else %}
+          <span class="rank-titles rank-titles--zero">0</span>
+        {% endif %}
+      </td>
+      <td class="rank-table__actions">
+        <a href="{{ url_for('players.edit_player_profile', lid=league.id, pid=p.id) }}"
+           class="btn btn-outline-secondary btn-xs" aria-label="Edit">
+          <i class="bi bi-pencil"></i>
+        </a>
+        {% if current_user.is_admin %}
+        <form method="post" action="{{ url_for('players.delete_player_profile', lid=league.id, pid=p.id) }}"
+              class="d-inline"
+              onsubmit="return confirm('Remove {{ p.full_name }} from the registry?')">
+          <button class="btn btn-outline-danger btn-xs" aria-label="Delete">
+            <i class="bi bi-trash"></i>
+          </button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 </div>
 {% else %}
-<div class="text-center py-5 text-muted">
-  <i class="bi bi-people display-1"></i>
-  <p class="mt-3 fs-5">No players yet. <a href="{{ url_for('players.add_player_profile', lid=league.id) }}">Add your first player.</a></p>
+<div class="empty">
+  <div class="empty__mark">No Players Registered</div>
+  <a href="{{ url_for('players.add_player_profile', lid=league.id) }}">Add the first player →</a>
 </div>
 {% endif %}
 {% endblock %}
