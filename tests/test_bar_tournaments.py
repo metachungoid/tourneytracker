@@ -101,3 +101,17 @@ def test_can_manage_legacy_owner_id_path(app):
         db.session.add(t)
         db.session.commit()
         assert t.can_manage(owner) is True
+
+
+import pytest
+
+
+def test_cannot_set_both_league_and_bar(app):
+    with app.app_context():
+        owner = _admin('mx', is_admin=True)
+        bar = _bar(owner)
+        league = _league(owner)
+        with pytest.raises(ValueError):
+            t = Tournament(name='Bad', league_id=league.id, bar_id=bar.id)
+            db.session.add(t)
+            db.session.flush()

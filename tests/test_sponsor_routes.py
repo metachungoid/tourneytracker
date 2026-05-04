@@ -370,3 +370,44 @@ def test_cannot_remove_primary_membership(app):
     assert resp.status_code == 302
     with app.app_context():
         assert BarMembership.query.get(mid) is not None
+
+
+def test_bar_member_creates_tournament(app):
+    with app.app_context():
+        primary = _create_user('bt_primary')
+        bar = Bar(name='BTBar', created_by_id=primary.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=primary.id, bar_id=bar.id,
+                                     is_primary=True))
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    _login(client, 'bt_primary')
+    resp = client.post(f'/bar/{bid}/tournament/new', data={'name': 'Friday Night'})
+    assert resp.status_code == 302
+    with app.app_context():
+        from models import Tournament
+        t = Tournament.query.filter_by(name='Friday Night').first()
+        assert t is not None
+        assert t.bar_id == bid
+        assert t.league_id is None
+
+
+def test_outsider_cannot_create_bar_tournament(app):
+    with app.app_context():
+        primary = _create_user('out_primary')
+        outsider = _create_user('out_outsider')
+        bar = Bar(name='OutBar', created_by_id=primary.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=primary.id, bar_id=bar.id,
+                                     is_primary=True))
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    _login(client, 'out_outsider')
+    resp = client.post(f'/bar/{bid}/tournament/new', data={'name': 'Sneaky'})
+    assert resp.status_code == 403

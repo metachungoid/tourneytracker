@@ -175,6 +175,17 @@ class Tournament(db.Model):
     def is_double(self):
         return self.bracket_type == 'double'
 
+    @db.validates('league_id', 'bar_id')
+    def _validate_mutual_exclusion(self, key, value):
+        # Lazy: at validate-time some attrs may not exist yet.
+        other_key = 'bar_id' if key == 'league_id' else 'league_id'
+        other = getattr(self, other_key, None)
+        if value is not None and other is not None:
+            raise ValueError(
+                'A tournament belongs either to a league or to a bar, not both.'
+            )
+        return value
+
     def can_manage(self, user):
         if not user or not getattr(user, 'is_authenticated', False):
             return False

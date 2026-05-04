@@ -71,4 +71,19 @@ def remove_staff(bid, mid):
 @bp.route('/bar/<int:bid>/tournament/new', methods=['POST'])
 @login_required
 def new_bar_tournament(bid):
-    abort(404)
+    bar = Bar.query.get_or_404(bid)
+    if not bar.can_manage(current_user):
+        abort(403)
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Tournament name required.', 'danger')
+        return redirect(url_for('bars.bar_dashboard', bid=bid))
+    t = Tournament(
+        name=name, bar_id=bid, owner_id=current_user.id,
+        buyin=10, table_fee=1.0, format='bestof', race_to=1,
+        bracket_type='single', lb_format='bestof', lb_race_to=1,
+        seeding='random',
+    )
+    db.session.add(t)
+    db.session.commit()
+    return redirect(url_for('tournaments.tournament', tid=t.id))
