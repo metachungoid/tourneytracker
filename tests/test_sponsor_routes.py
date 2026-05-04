@@ -411,3 +411,32 @@ def test_outsider_cannot_create_bar_tournament(app):
     _login(client, 'out_outsider')
     resp = client.post(f'/bar/{bid}/tournament/new', data={'name': 'Sneaky'})
     assert resp.status_code == 403
+
+
+def test_bar_only_user_redirects_to_bar(app):
+    with app.app_context():
+        creator = _create_user('lr_creator', is_admin=True)
+        member = _create_user('lr_member')
+        bar = Bar(name='LRBar', created_by_id=creator.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=member.id, bar_id=bar.id,
+                                     is_primary=True))
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    resp = client.post('/login', data={'username': 'lr_member', 'password': 'secret123'},
+                       follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith(f'/bar/{bid}')
+
+
+def test_operator_redirects_to_leagues_list(app):
+    with app.app_context():
+        _create_user('lr_op', is_league_operator=True)
+    client = app.test_client()
+    resp = client.post('/login', data={'username': 'lr_op', 'password': 'secret123'},
+                       follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers['Location'].endswith('/leagues')
