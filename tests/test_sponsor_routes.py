@@ -134,3 +134,74 @@ def test_remove_sponsor_requires_league_management(app):
     assert resp.status_code == 403
     with app.app_context():
         assert LeagueSponsorship.query.get(sid) is not None
+
+
+from models import BarMembership
+
+
+def test_onboard_new_bar_creates_full_chain(app):
+    with app.app_context():
+        op = _create_user('onb_op', is_league_operator=True)
+        league = League(name='LO', owner_id=op.id)
+        db.session.add(league)
+        db.session.commit()
+        lid = league.id
+    client = app.test_client()
+    _login(client, 'onb_op')
+    resp = client.post(f'/league/{lid}/sponsor/onboard', data={
+        'bar_name': 'Cactus',
+        'sponsor_username': 'cactus_owner',
+        'sponsor_password': 'secret123',
+    })
+    assert resp.status_code == 302
+    with app.app_context():
+        bar = Bar.query.filter_by(name='Cactus').first()
+        assert bar is not None
+        u = Admin.query.filter_by(username='cactus_owner').first()
+        assert u is not None
+        assert u.is_admin is False
+        assert u.is_league_operator is False
+        m = BarMembership.query.filter_by(user_id=u.id, bar_id=bar.id).first()
+        assert m is not None
+        assert m.is_primary is True
+        ls = LeagueSponsorship.query.filter_by(league_id=lid, bar_id=bar.id).first()
+        assert ls is not None
+
+
+def test_onboard_rejects_duplicate_username(app):
+    with app.app_context():
+        op = _create_user('dup_op', is_league_operator=True)
+        league = League(name='LD', owner_id=op.id)
+        db.session.add(league)
+        # An existing user with this username already exists.
+        existing = Admin(username='taken')
+        existing.set_password('x' * 6)
+        db.session.add(existing)
+        db.session.commit()
+        lid = league.id
+    client = app.test_client()
+    _login(client, 'dup_op')
+    resp = client.post(f'/league/{lid}/sponsor/onboard', data={
+        'bar_name': 'Other',
+        'sponsor_username': 'taken',
+        'sponsor_password': 'secret123',
+    }, follow_redirects=True)
+    # Redirect back to dashboard with an error flash; no bar created.
+    with app.app_context():
+        assert Bar.query.filter_by(name='Other').first() is None
+
+
+def test_onboard_requires_league_management(app):
+    with app.app_context():
+        op = _create_user('o3_op', is_league_operator=True)
+        outsider = _create_user('o3_out')
+        league = League(name='L3', owner_id=op.id)
+        db.session.add(league)
+        db.session.commit()
+        lid = league.id
+    client = app.test_client()
+    _login(client, 'o3_out')
+    resp = client.post(f'/league/{lid}/sponsor/onboard', data={
+        'bar_name': 'X', 'sponsor_username': 'x', 'sponsor_password': 'secret123',
+    })
+    assert resp.status_code == 403

@@ -127,6 +127,15 @@
   {% else %}
     <p class="text-muted mt-2">No sponsors yet.</p>
   {% endif %}
+  <form method="post"
+        action="{{ url_for('leagues.onboard_sponsor', lid=league.id) }}"
+        class="form-stack form-stack--inline">
+    <h3>Onboard new bar sponsor</h3>
+    <input type="text" name="bar_name" class="form-control" placeholder="Bar name" required>
+    <input type="text" name="sponsor_username" class="form-control" placeholder="Primary sponsor username" required>
+    <input type="password" name="sponsor_password" class="form-control" placeholder="Password (6+ chars)" minlength="6" required>
+    <button type="submit" class="btn btn-primary">Create sponsor</button>
+  </form>
 </section>
 
 <!-- Delete League -->

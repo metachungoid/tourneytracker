@@ -89,6 +89,42 @@ def delete_league(lid):
     return redirect(url_for('leagues.league_list'))
 
 
+@bp.route('/league/<int:lid>/sponsor/onboard', methods=['POST'])
+@login_required
+def onboard_sponsor(lid):
+    from datetime import datetime
+    from models import Admin, Bar, BarMembership
+    league = League.query.get_or_404(lid)
+    _check_league_access(league)
+    bar_name = request.form.get('bar_name', '').strip()
+    username = request.form.get('sponsor_username', '').strip()
+    password = request.form.get('sponsor_password', '')
+    if not bar_name or not username or len(password) < 6:
+        flash('Bar name, username, and a 6+ character password are required.', 'danger')
+        return redirect(url_for('leagues.league_dashboard', lid=lid))
+    if Admin.query.filter_by(username=username).first():
+        flash(f'Username "{username}" is already taken.', 'danger')
+        return redirect(url_for('leagues.league_dashboard', lid=lid))
+
+    bar = Bar(name=bar_name, created_by_id=current_user.id,
+              created_at=datetime.utcnow())
+    db.session.add(bar)
+    db.session.flush()
+
+    user = Admin(username=username, is_admin=False, is_league_operator=False)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.flush()
+
+    db.session.add(BarMembership(user_id=user.id, bar_id=bar.id, is_primary=True))
+    db.session.add(LeagueSponsorship(league_id=lid, bar_id=bar.id,
+                                     invited_by_id=current_user.id,
+                                     invited_at=datetime.utcnow()))
+    db.session.commit()
+    flash(f'Sponsor "{bar_name}" onboarded with primary login "{username}".', 'success')
+    return redirect(url_for('leagues.league_dashboard', lid=lid))
+
+
 @bp.route('/league/<int:lid>/sponsor/<int:sid>/remove', methods=['POST'])
 @login_required
 def remove_sponsor(lid, sid):
