@@ -28,3 +28,22 @@ def can_promote_user(user):
     if not _is_real_user(user):
         return False
     return bool(user.is_admin)
+
+
+def can_act_as_sponsor(user, league, bar):
+    """True if `user` is a member of `bar` AND `bar` sponsors `league`.
+
+    Admins always pass. Used (in later projects) for any sponsor action
+    scoped to a specific league context — creating teams, designating
+    tournament officials, etc.
+    """
+    if not _is_real_user(user):
+        return False
+    if user.is_admin:
+        return True
+    if not bar.can_manage(user):
+        return False
+    from models import LeagueSponsorship
+    return LeagueSponsorship.query.filter_by(
+        league_id=league.id, bar_id=bar.id
+    ).first() is not None
