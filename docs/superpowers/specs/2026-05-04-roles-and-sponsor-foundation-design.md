@@ -22,11 +22,12 @@ This document covers only A.
 3. Allow a single Bar to have a primary Sponsor login plus invitable Bar Staff sub-accounts with equivalent powers.
 4. Allow a single human to wear multiple hats (e.g., be a Sponsor at one bar and a Player on a team elsewhere) without juggling logins.
 5. Reserve the `PlayerProfile.user_id` column so that Project B can link players to logins without another schema migration.
+6. Allow a Bar to host its own recreational tournaments — independent of any league. The Bar's primary sponsor and any Bar Staff can create, edit, delete, and score these tournaments without needing a League Operator.
 
 ## Non-goals
 
 - Teams, captains, co-captains, scorekeepers, subs (Project B).
-- Tournament public/private visibility, anonymous viewing, tournament officials, tournament sharing (Project C).
+- Tournament public/private visibility, anonymous viewing, sharing tournaments across Bars/Leagues, and granting tournament-management rights to non-staff *players* designated as "tournament officials" (Project C).
 - Dual scoring, league play scheduling, conflict resolution (Project D).
 - Self-signup for any role. All accounts are created by an admin, a league operator, or a primary sponsor.
 
@@ -97,9 +98,24 @@ Constraints:
 
 Constraint: `UNIQUE (league_id, bar_id)`.
 
-### Existing tables (unchanged in A)
+### Tournament (additive)
 
-`League`, `ManagerShare`, `Tournament`, `Match`, `Participant`. Authorization for tournaments and players is unchanged in A; Project C revisits it.
+| column   | type    | notes                                        |
+| -------- | ------- | -------------------------------------------- |
+| bar_id   | integer | new, nullable, FK → bar.id                   |
+
+Semantics:
+
+- `league_id` set, `bar_id` null → league tournament (existing behavior, unchanged).
+- `bar_id` set, `league_id` null → Bar's recreational tournament (new in A).
+- Both null → orphan/legacy (already exists; preserved).
+- Both set → not allowed in A. Application-level validation rejects it; a future "league night hosted at venue X" feature can revisit if needed.
+
+The existing `owner_id` column is preserved for provenance; it does not gate authorization once `bar_id` or `league_id` is set.
+
+### Existing tables (otherwise unchanged in A)
+
+`League`, `ManagerShare`, `Match`, `Participant`. Authorization for *players* is unchanged in A; Project C revisits player-level designations (tournament officials) and tournament visibility.
 
 ## Authorization rules
 
@@ -127,6 +143,17 @@ A new module `auth_helpers.py` exposes named predicates. Routes use them via dec
 
   This is the gate later projects will use whenever a sponsor acts inside a specific league (creating teams, designating tournament officials). Project A defines and tests it; no routes consume it yet.
 
+### Tournament-scoped (extended)
+
+`Tournament.can_manage(user)` is updated to support the new ownership shapes. Order of checks:
+
+1. Admin → true.
+2. If `tournament.league_id` is set → `League.can_manage(user)`. (Existing path, unchanged.)
+3. If `tournament.bar_id` is set → `Bar.can_manage(user)`. (New: Bar's primary and Bar Staff both manage the bar's recreational tournaments.)
+4. Otherwise (legacy/orphan) → `tournament.owner_id == user.id`.
+
+Project C will extend this check to include tournament officials (player-level designation).
+
 ## Routes and UI changes
 
 ### Admin panel — `routes/admin.py`, `templates/admin.html`
@@ -145,8 +172,10 @@ A new module `auth_helpers.py` exposes named predicates. Routes use them via dec
 ### New "My Bar" page — `routes/bars.py`, `templates/bar_dashboard.html`
 
 - Visible to users with at least one `BarMembership`.
-- Shows the Bar's profile, the list of leagues the bar is sponsoring, and (primary only) a Bar Staff section to invite/remove additional users.
-- Project A scope ends at the staff list. Team management lands in Project B.
+- Shows the Bar's profile, the list of leagues the bar is sponsoring, (primary only) a Bar Staff section to invite/remove additional users, and a **Recreational Tournaments** section listing the bar's own tournaments.
+- "New tournament" action on the bar dashboard creates a tournament with `bar_id` set and `league_id` null. Routes through a `routes/tournaments.py` entry point that gates on `Bar.can_manage(user)`.
+- Editing, deleting, and scoring a bar-owned tournament reuses the existing tournament routes; the updated `Tournament.can_manage` check (see auth section) lets Bar Staff in.
+- Project A scope ends at staff + recreational tournaments. Team management lands in Project B; tournament public/private visibility lands in Project C.
 
 ### Login redirect
 
@@ -158,7 +187,7 @@ After Project A, post-login routing is:
 
 ### Untouched in Project A
 
-Tournament views, player roster pages, bracket pages.
+Player roster pages, bracket pages, the *anonymous* tournament view path. The logged-in tournament management UI is unchanged in markup; only the auth gate behind it (`Tournament.can_manage`) is extended.
 
 ## Error handling and edge cases
 
@@ -167,6 +196,8 @@ Tournament views, player roster pages, bracket pages.
 - Deleting a `Bar` → allowed only if zero `LeagueSponsorship` rows and zero `BarMembership` rows. Otherwise 400 "Detach all sponsorships and members first." Admin override is available.
 - Demoting a user (`is_league_operator: 1 → 0`) is allowed even if they own leagues. They retain ownership and full management rights on their existing leagues (those flow from `League.owner_id`, not the global flag) but cannot create new ones.
 - Two operators concurrently inviting the same Bar to the same league → the `UNIQUE (league_id, bar_id)` constraint catches the second insert; the route returns "Bar already sponsors this league."
+- Creating a tournament with both `league_id` and `bar_id` set → 400 "A tournament belongs either to a league or to a bar, not both." Validation runs in the create/edit routes.
+- Deleting a Bar that owns recreational tournaments → blocked. Detach (delete or transfer) those tournaments first. Tournaments owned by `bar_id` cascade-block deletion of the Bar in the same way `BarMembership` and `LeagueSponsorship` do.
 
 ## Testing
 
@@ -176,7 +207,8 @@ New test files under `tests/`, following the existing pytest setup.
 - `tests/test_bar_membership.py` — primary uniqueness, staff invite/remove, `Bar.can_manage`, `Bar.can_manage_staff`.
 - `tests/test_league_sponsorship.py` — invite, remove, uniqueness, `Sponsorship.can_act` matrix.
 - `tests/test_migration_admin_to_user.py` — fixture with old `Admin` rows (`role='admin'`, `role='manager'`); run migration; assert `is_admin` and `is_league_operator` are set correctly and `role` is dropped.
-- Route tests for sponsor onboarding (happy path, duplicate username, bar already sponsoring league).
+- `tests/test_bar_tournaments.py` — Bar Staff and primary can create/edit/delete/score a tournament with `bar_id` set; non-members cannot; the "both `league_id` and `bar_id`" guard rejects.
+- Route tests for sponsor onboarding (happy path, duplicate username, bar already sponsoring league) and bar-tournament creation.
 
 ## Migration and rollout
 
@@ -187,8 +219,9 @@ A single migration step. SQLite is the production database; the `ALTER TABLE` st
 3. Backfill: `role='admin'` → `is_admin=1`; `role='manager'` → `is_league_operator=1`.
 4. Drop `user.role`.
 5. Add `player_profile.user_id` (nullable, FK → user.id).
-6. Create `bar`, `bar_membership`, `league_sponsorship` tables and indexes.
-7. No data backfill for new tables.
+6. Add `tournament.bar_id` (nullable, FK → bar.id).
+7. Create `bar`, `bar_membership`, `league_sponsorship` tables and indexes.
+8. No data backfill for new tables. Existing tournaments keep `bar_id = NULL`.
 
 Existing functionality (leagues, tournaments, manager shares, players) continues to work. The only visible behavior change pre-Project-B is the admin panel showing a Bars section and the league dashboard showing a Sponsors panel.
 
