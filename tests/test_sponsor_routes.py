@@ -280,3 +280,93 @@ def test_bar_dashboard_renders_for_member(app):
     resp = client.get(f'/bar/{bid}')
     assert resp.status_code == 200
     assert b'CactusZZZ' in resp.data
+
+
+def test_primary_invites_staff(app):
+    with app.app_context():
+        primary = _create_user('inv_primary')
+        bar = Bar(name='InvBar', created_by_id=primary.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=primary.id, bar_id=bar.id,
+                                     is_primary=True))
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    _login(client, 'inv_primary')
+    resp = client.post(f'/bar/{bid}/staff/invite', data={
+        'username': 'newstaff', 'password': 'secret123',
+    })
+    assert resp.status_code == 302
+    with app.app_context():
+        u = Admin.query.filter_by(username='newstaff').first()
+        assert u is not None
+        assert u.is_admin is False
+        m = BarMembership.query.filter_by(user_id=u.id, bar_id=bid).first()
+        assert m is not None
+        assert m.is_primary is False
+
+
+def test_staff_cannot_invite_staff(app):
+    with app.app_context():
+        primary = _create_user('np_primary')
+        staff = _create_user('np_staff')
+        bar = Bar(name='NPBar', created_by_id=primary.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=primary.id, bar_id=bar.id,
+                                     is_primary=True))
+        db.session.add(BarMembership(user_id=staff.id, bar_id=bar.id,
+                                     is_primary=False))
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    _login(client, 'np_staff')
+    resp = client.post(f'/bar/{bid}/staff/invite', data={
+        'username': 'denied', 'password': 'secret123',
+    })
+    assert resp.status_code == 403
+
+
+def test_remove_staff(app):
+    with app.app_context():
+        primary = _create_user('rm_primary')
+        staff = _create_user('rm_staff')
+        bar = Bar(name='RMBar', created_by_id=primary.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=primary.id, bar_id=bar.id,
+                                     is_primary=True))
+        m = BarMembership(user_id=staff.id, bar_id=bar.id, is_primary=False)
+        db.session.add(m)
+        db.session.commit()
+        bid, mid = bar.id, m.id
+    client = app.test_client()
+    _login(client, 'rm_primary')
+    resp = client.post(f'/bar/{bid}/staff/{mid}/remove')
+    assert resp.status_code == 302
+    with app.app_context():
+        assert BarMembership.query.get(mid) is None
+
+
+def test_cannot_remove_primary_membership(app):
+    with app.app_context():
+        primary = _create_user('rmp_primary')
+        bar = Bar(name='RMPBar', created_by_id=primary.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.flush()
+        m = BarMembership(user_id=primary.id, bar_id=bar.id, is_primary=True)
+        db.session.add(m)
+        db.session.commit()
+        bid, mid = bar.id, m.id
+    client = app.test_client()
+    _login(client, 'rmp_primary')
+    resp = client.post(f'/bar/{bid}/staff/{mid}/remove', follow_redirects=False)
+    # Should redirect with an error flash; primary membership not deleted.
+    assert resp.status_code == 302
+    with app.app_context():
+        assert BarMembership.query.get(mid) is not None
