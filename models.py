@@ -389,6 +389,25 @@ class BarMembership(db.Model):
     )
 
 
+class LeagueSponsorship(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=False)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
+    invited_by_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    invited_at = db.Column(db.DateTime, nullable=True)
+
+    league = db.relationship('League', foreign_keys=[league_id], backref='sponsorships')
+    bar = db.relationship(
+        'Bar', foreign_keys=[bar_id],
+        backref=db.backref('sponsorships', cascade='all, delete-orphan')
+    )
+    inviter = db.relationship('Admin', foreign_keys=[invited_by_id])
+
+    __table_args__ = (
+        db.UniqueConstraint('league_id', 'bar_id', name='uq_league_sponsorship'),
+    )
+
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)

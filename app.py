@@ -82,6 +82,14 @@ with app.app_context():
     UNIQUE (user_id, bar_id)
 )""",
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_bar_membership_primary ON bar_membership (bar_id) WHERE is_primary = 1",
+        """CREATE TABLE IF NOT EXISTS league_sponsorship (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    league_id INTEGER NOT NULL REFERENCES league(id),
+    bar_id INTEGER NOT NULL REFERENCES bar(id),
+    invited_by_id INTEGER REFERENCES admin(id),
+    invited_at TIMESTAMP,
+    UNIQUE (league_id, bar_id)
+)""",
     ]:
         try:
             db.session.execute(db.text(col_sql))
