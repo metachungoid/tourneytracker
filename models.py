@@ -449,6 +449,23 @@ class LeagueSponsorship(db.Model):
     )
 
 
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=True)
+
+    bar = db.relationship('Bar', foreign_keys=[bar_id], backref='teams')
+    league = db.relationship('League', foreign_keys=[league_id], backref='teams')
+    creator = db.relationship('User', foreign_keys=[created_by_id])
+    # NOTE: memberships relationship to TeamMembership is omitted here;
+    # Task 2 will add it via a backref on TeamMembership (BarMembership-style pattern).
+    # The forward-reference string 'TeamMembership' fails at mapper-config time
+    # in this codebase when TeamMembership is not yet defined.
+
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)

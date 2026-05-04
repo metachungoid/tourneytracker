@@ -89,6 +89,14 @@ with app.app_context():
             invited_at TIMESTAMP,
             UNIQUE (league_id, bar_id)
         )""",
+        """CREATE TABLE IF NOT EXISTS team (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(120) NOT NULL,
+    bar_id INTEGER NOT NULL REFERENCES bar(id),
+    league_id INTEGER NOT NULL REFERENCES league(id),
+    created_by_id INTEGER REFERENCES user(id),
+    created_at TIMESTAMP
+)""",
     ]:
         try:
             db.session.execute(db.text(col_sql))
