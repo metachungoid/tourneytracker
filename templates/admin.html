@@ -139,8 +139,8 @@
           <div>
             <i class="bi bi-person-badge me-2 text-warning"></i>
             <strong>{{ a.username }}</strong>
-            <span class="badge {% if a.is_admin %}bg-danger{% else %}bg-info{% endif %} ms-1 small">
-              {{ a.role|capitalize }}
+            <span class="badge {% if a.is_admin %}bg-danger{% elif a.is_league_operator %}bg-info{% else %}bg-secondary{% endif %} ms-1 small">
+              {% if a.is_admin %}Admin{% elif a.is_league_operator %}Operator{% else %}User{% endif %}
             </span>
             {% if a.id == current_user.id %}
               <span class="badge bg-primary ms-1 small">you</span>
@@ -148,7 +148,7 @@
           </div>
           {% if a.id != current_user.id %}
           <form method="post" action="{{ url_for('admin.admin_delete_admin', aid=a.id) }}"
-                onsubmit="return confirm('Remove {{ a.role }} {{ a.username }}?')">
+                onsubmit="return confirm('Remove user {{ a.username }}?')">
             <button class="btn btn-sm btn-outline-danger py-0">
               <i class="bi bi-trash"></i>
             </button>
@@ -175,10 +175,17 @@
                    placeholder="Password (min 6 chars)" required minlength="6">
           </div>
           <div class="mb-3">
-            <select name="role" class="form-select form-select-sm">
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
-            </select>
+            <div class="form-field">
+              <label class="form-checkbox d-block">
+                <input type="checkbox" name="is_admin" value="1">
+                <span class="ms-1">Admin</span>
+              </label>
+              <label class="form-checkbox d-block mt-1">
+                <input type="checkbox" name="is_league_operator" value="1">
+                <span class="ms-1">League Operator</span>
+              </label>
+              <p class="form-text text-muted small mt-1">Either, both, or neither. Operators can create leagues; admins can do anything.</p>
+            </div>
           </div>
           <button type="submit" class="btn btn-outline-success btn-sm w-100">
             <i class="bi bi-plus-circle me-1"></i>Create Account

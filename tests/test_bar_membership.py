@@ -6,7 +6,7 @@ from models import BarMembership
 
 
 def _make_admin(username='admin1'):
-    u = Admin(username=username, role='admin', is_admin=True)
+    u = Admin(username=username, is_admin=True)
     u.set_password('x' * 6)
     db.session.add(u)
     db.session.commit()

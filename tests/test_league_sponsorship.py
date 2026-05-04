@@ -5,7 +5,7 @@ from models import Admin, Bar, League, LeagueSponsorship
 
 
 def _seed(app):
-    admin = Admin(username='ls_admin', role='admin', is_admin=True)
+    admin = Admin(username='ls_admin', is_admin=True)
     admin.set_password('x' * 6)
     db.session.add(admin)
     db.session.flush()
@@ -54,7 +54,7 @@ from models import BarMembership
 
 def _seed_full(app):
     admin, league, bar = _seed(app)
-    sponsor = Admin(username='spons', role='manager', is_admin=False)
+    sponsor = Admin(username='spons', is_admin=False)
     sponsor.set_password('x' * 6)
     db.session.add(sponsor)
     db.session.flush()
@@ -90,7 +90,7 @@ def test_can_act_admin_always_true(app):
 def test_can_act_no_membership_denied(app):
     with app.app_context():
         admin, league, bar, _ = _seed_full(app)
-        outsider = Admin(username='outsider', role='manager')
+        outsider = Admin(username='outsider')
         outsider.set_password('x' * 6)
         db.session.add(outsider)
         db.session.commit()

@@ -36,8 +36,7 @@ def test_neither_flag_is_default(app):
 
 
 def _make_user(is_admin=False, is_league_operator=False, username='u'):
-    u = Admin(username=username, role='admin' if is_admin else 'manager',
-              is_admin=is_admin, is_league_operator=is_league_operator)
+    u = Admin(username=username, is_admin=is_admin, is_league_operator=is_league_operator)
     u.set_password('x' * 6)
     db.session.add(u)
     db.session.commit()

@@ -21,7 +21,7 @@ def settings():
             for s in lg.shares:
                 all_delegate_ids.add(s.delegate_id)
         other_managers = Admin.query.filter(
-            Admin.role == 'manager',
+            Admin.is_league_operator == True,  # noqa: E712
             Admin.id != current_user.id,
         ).order_by(Admin.username).all()
     return render_template('settings.html',
@@ -67,7 +67,7 @@ def add_delegate():
         flash('You can only share your own leagues.', 'danger')
         return redirect(url_for('settings.settings'))
     delegate = Admin.query.get(delegate_id)
-    if not delegate or delegate.role != 'manager':
+    if not delegate or not delegate.is_league_operator:
         flash('Can only share with other manager accounts.', 'danger')
         return redirect(url_for('settings.settings'))
     if ManagerShare.query.filter_by(league_id=league_id, delegate_id=delegate_id).first():

@@ -4,7 +4,7 @@ from models import Admin, Bar, BarMembership, League, Tournament
 
 
 def _admin(username, **flags):
-    u = Admin(username=username, role='admin', **flags)
+    u = Admin(username=username, **flags)
     u.set_password('x' * 6)
     db.session.add(u)
     db.session.commit()

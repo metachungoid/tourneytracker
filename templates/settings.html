@@ -4,8 +4,8 @@
 {% block content %}
 <div class="d-flex align-items-center gap-3 mb-4">
   <h2 class="mb-0"><i class="bi bi-gear-fill text-warning me-2"></i>Settings</h2>
-  <span class="badge {% if current_user.is_admin %}bg-danger{% else %}bg-info{% endif %}">
-    {{ current_user.role|capitalize }}
+  <span class="badge {% if current_user.is_admin %}bg-danger{% elif current_user.is_league_operator %}bg-info{% else %}bg-secondary{% endif %}">
+    {% if current_user.is_admin %}Admin{% elif current_user.is_league_operator %}Operator{% else %}User{% endif %}
   </span>
 </div>
 

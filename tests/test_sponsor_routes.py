@@ -3,7 +3,7 @@ from models import Admin
 
 
 def _create_user(username, password='secret123', **flags):
-    u = Admin(username=username, role='admin' if flags.get('is_admin') else 'manager', **flags)
+    u = Admin(username=username, **flags)
     u.set_password(password)
     db.session.add(u)
     db.session.commit()
@@ -48,3 +48,34 @@ def test_admin_can_create_league(app):
     with app.app_context():
         from models import League
         assert League.query.filter_by(name='Admin League').first() is not None
+
+
+def test_admin_creates_user_with_both_flags(app):
+    with app.app_context():
+        _create_user('boss', is_admin=True)
+    client = app.test_client()
+    _login(client, 'boss')
+    resp = client.post('/admin/add_user', data={
+        'username': 'dual', 'password': 'secret123',
+        'is_admin': '1', 'is_league_operator': '1',
+    })
+    assert resp.status_code == 302
+    with app.app_context():
+        u = Admin.query.filter_by(username='dual').first()
+        assert u.is_admin is True
+        assert u.is_league_operator is True
+
+
+def test_admin_creates_user_with_neither_flag(app):
+    with app.app_context():
+        _create_user('boss2', is_admin=True)
+    client = app.test_client()
+    _login(client, 'boss2')
+    resp = client.post('/admin/add_user', data={
+        'username': 'plain1', 'password': 'secret123',
+    })
+    assert resp.status_code == 302
+    with app.app_context():
+        u = Admin.query.filter_by(username='plain1').first()
+        assert u.is_admin is False
+        assert u.is_league_operator is False
