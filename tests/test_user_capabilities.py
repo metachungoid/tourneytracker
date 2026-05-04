@@ -35,7 +35,7 @@ def test_neither_flag_is_default(app):
         assert fetched.is_league_operator is False
 
 
-def _make_user(app, is_admin=False, is_league_operator=False, username='u'):
+def _make_user(is_admin=False, is_league_operator=False, username='u'):
     u = Admin(username=username, role='admin' if is_admin else 'manager',
               is_admin=is_admin, is_league_operator=is_league_operator)
     u.set_password('x' * 6)
@@ -46,19 +46,19 @@ def _make_user(app, is_admin=False, is_league_operator=False, username='u'):
 
 def test_can_create_league_admin(app):
     with app.app_context():
-        u = _make_user(app, is_admin=True, username='a')
+        u = _make_user(is_admin=True, username='a')
         assert can_create_league(u) is True
 
 
 def test_can_create_league_operator(app):
     with app.app_context():
-        u = _make_user(app, is_league_operator=True, username='op')
+        u = _make_user(is_league_operator=True, username='op')
         assert can_create_league(u) is True
 
 
 def test_can_create_league_neither_denied(app):
     with app.app_context():
-        u = _make_user(app, username='plain2')
+        u = _make_user(username='plain2')
         assert can_create_league(u) is False
 
 
@@ -70,9 +70,9 @@ def test_can_create_league_anonymous(app):
 
 def test_can_create_bar_matches_create_league(app):
     with app.app_context():
-        admin = _make_user(app, is_admin=True, username='ba')
-        op = _make_user(app, is_league_operator=True, username='bo')
-        plain = _make_user(app, username='bp')
+        admin = _make_user(is_admin=True, username='ba')
+        op = _make_user(is_league_operator=True, username='bo')
+        plain = _make_user(username='bp')
         assert can_create_bar(admin) is True
         assert can_create_bar(op) is True
         assert can_create_bar(plain) is False
@@ -80,7 +80,7 @@ def test_can_create_bar_matches_create_league(app):
 
 def test_can_promote_user_admin_only(app):
     with app.app_context():
-        admin = _make_user(app, is_admin=True, username='pa')
-        op = _make_user(app, is_league_operator=True, username='po')
+        admin = _make_user(is_admin=True, username='pa')
+        op = _make_user(is_league_operator=True, username='po')
         assert can_promote_user(admin) is True
         assert can_promote_user(op) is False
