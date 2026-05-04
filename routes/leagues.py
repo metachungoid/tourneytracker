@@ -49,9 +49,14 @@ def league_dashboard(lid):
     ).all()
     player_count = PlayerProfile.query.filter_by(league_id=lid).count()
     sponsorships = LeagueSponsorship.query.filter_by(league_id=lid).all()
+    sponsored_bar_ids = [s.bar_id for s in sponsorships]
+    from models import Bar
+    invitable_bars = Bar.query.filter(~Bar.id.in_(sponsored_bar_ids)).order_by(Bar.name).all() \
+        if sponsored_bar_ids else Bar.query.order_by(Bar.name).all()
     return render_template('league_dashboard.html', league=league,
                            tournaments=tournaments, player_count=player_count,
-                           sponsorships=sponsorships)
+                           sponsorships=sponsorships,
+                           invitable_bars=invitable_bars)
 
 
 @bp.route('/league/<int:lid>/edit', methods=['GET', 'POST'])
@@ -122,6 +127,33 @@ def onboard_sponsor(lid):
                                      invited_at=datetime.utcnow()))
     db.session.commit()
     flash(f'Sponsor "{bar_name}" onboarded with primary login "{username}".', 'success')
+    return redirect(url_for('leagues.league_dashboard', lid=lid))
+
+
+@bp.route('/league/<int:lid>/sponsor/invite', methods=['POST'])
+@login_required
+def invite_sponsor(lid):
+    from datetime import datetime
+    from models import Bar
+    league = League.query.get_or_404(lid)
+    _check_league_access(league)
+    bar_id = request.form.get('bar_id', type=int)
+    if not bar_id:
+        flash('Pick a bar to invite.', 'danger')
+        return redirect(url_for('leagues.league_dashboard', lid=lid))
+    bar = Bar.query.get_or_404(bar_id)
+    existing = LeagueSponsorship.query.filter_by(
+        league_id=lid, bar_id=bar.id
+    ).first()
+    if existing:
+        flash(f'{bar.name} already sponsors this league.', 'warning')
+        return redirect(url_for('leagues.league_dashboard', lid=lid))
+    db.session.add(LeagueSponsorship(
+        league_id=lid, bar_id=bar.id,
+        invited_by_id=current_user.id, invited_at=datetime.utcnow(),
+    ))
+    db.session.commit()
+    flash(f'{bar.name} added as a sponsor.', 'success')
     return redirect(url_for('leagues.league_dashboard', lid=lid))
 
 

@@ -205,3 +205,45 @@ def test_onboard_requires_league_management(app):
         'bar_name': 'X', 'sponsor_username': 'x', 'sponsor_password': 'secret123',
     })
     assert resp.status_code == 403
+
+
+def test_invite_existing_bar(app):
+    with app.app_context():
+        op = _create_user('inv_op', is_league_operator=True)
+        league = League(name='LI', owner_id=op.id)
+        bar = Bar(name='Existing', created_by_id=op.id,
+                  created_at=datetime.utcnow())
+        db.session.add_all([league, bar])
+        db.session.commit()
+        lid, bid = league.id, bar.id
+    client = app.test_client()
+    _login(client, 'inv_op')
+    resp = client.post(f'/league/{lid}/sponsor/invite', data={'bar_id': bid})
+    assert resp.status_code == 302
+    with app.app_context():
+        ls = LeagueSponsorship.query.filter_by(league_id=lid, bar_id=bid).first()
+        assert ls is not None
+
+
+def test_invite_duplicate_rejected(app):
+    with app.app_context():
+        op = _create_user('inv2_op', is_league_operator=True)
+        league = League(name='LI2', owner_id=op.id)
+        bar = Bar(name='Existing2', created_by_id=op.id,
+                  created_at=datetime.utcnow())
+        db.session.add_all([league, bar])
+        db.session.flush()
+        db.session.add(LeagueSponsorship(league_id=league.id, bar_id=bar.id,
+                                         invited_by_id=op.id,
+                                         invited_at=datetime.utcnow()))
+        db.session.commit()
+        lid, bid = league.id, bar.id
+    client = app.test_client()
+    _login(client, 'inv2_op')
+    resp = client.post(f'/league/{lid}/sponsor/invite', data={'bar_id': bid},
+                       follow_redirects=False)
+    # Should redirect with a flash, not crash. Only one row exists.
+    assert resp.status_code == 302
+    with app.app_context():
+        rows = LeagueSponsorship.query.filter_by(league_id=lid, bar_id=bid).all()
+        assert len(rows) == 1
