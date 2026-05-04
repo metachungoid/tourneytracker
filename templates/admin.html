@@ -363,4 +363,26 @@
   </table>
 </div>
 
+<!-- ═══ Bars DB ═══ -->
+<section class="admin-block">
+  <div class="section-head">
+    <h2 class="section-head__title">Bars</h2>
+    <span class="section-head__count">{{ bars|length }}</span>
+  </div>
+  {% if bars %}
+    <ul class="sponsors-list">
+      {% for b in bars %}
+        <li>
+          <a href="{{ url_for('bars.bar_dashboard', bid=b.id) }}">{{ b.name }}</a>
+          {% set primary = b.memberships|selectattr('is_primary')|first %}
+          {% if primary %}<span class="muted">{{ primary.user.username }}</span>{% endif %}
+          <span class="muted">· {{ b.sponsorships|length }} league(s)</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No bars yet.</p>
+  {% endif %}
+</section>
+
 {% endblock %}

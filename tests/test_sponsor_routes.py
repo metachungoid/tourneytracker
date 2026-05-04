@@ -440,3 +440,17 @@ def test_operator_redirects_to_leagues_list(app):
                        follow_redirects=False)
     assert resp.status_code == 302
     assert resp.headers['Location'].endswith('/leagues')
+
+
+def test_admin_panel_lists_bars(app):
+    with app.app_context():
+        admin = _create_user('ab_admin', is_admin=True)
+        bar = Bar(name='ABBar', created_by_id=admin.id,
+                  created_at=datetime.utcnow())
+        db.session.add(bar)
+        db.session.commit()
+    client = app.test_client()
+    _login(client, 'ab_admin')
+    resp = client.get('/admin')
+    assert resp.status_code == 200
+    assert b'ABBar' in resp.data

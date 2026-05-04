@@ -20,6 +20,7 @@ def admin_required(f):
 @bp.route('/admin')
 @admin_required
 def admin_panel():
+    from models import Bar
     admins = Admin.query.order_by(Admin.username).all()
     stats = {
         'tournaments': Tournament.query.count(),
@@ -29,12 +30,15 @@ def admin_panel():
         'open': Tournament.query.filter_by(status='open').count(),
         'in_progress': Tournament.query.filter_by(status='bracket').count(),
         'leagues': League.query.count(),
+        'bars': Bar.query.count(),
     }
     tournaments = Tournament.query.order_by(Tournament.id.desc()).all()
     players = PlayerProfile.query.order_by(PlayerProfile.first_name, PlayerProfile.last_name).all()
     leagues = League.query.order_by(League.name).all()
+    bars = Bar.query.order_by(Bar.name).all()
     return render_template('admin.html', admins=admins, stats=stats,
-                           tournaments=tournaments, players=players, leagues=leagues)
+                           tournaments=tournaments, players=players,
+                           leagues=leagues, bars=bars)
 
 
 @bp.route('/admin/add_user', methods=['POST'])
