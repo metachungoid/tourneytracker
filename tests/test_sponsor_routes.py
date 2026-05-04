@@ -247,3 +247,36 @@ def test_invite_duplicate_rejected(app):
     with app.app_context():
         rows = LeagueSponsorship.query.filter_by(league_id=lid, bar_id=bid).all()
         assert len(rows) == 1
+
+
+def test_bar_dashboard_requires_membership(app):
+    with app.app_context():
+        op = _create_user('bd_op', is_admin=True)
+        bar = Bar(name='Cactus', created_by_id=op.id, created_at=datetime.utcnow())
+        outsider = _create_user('bd_out')
+        db.session.add(bar)
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    _login(client, 'bd_out')
+    resp = client.get(f'/bar/{bid}')
+    assert resp.status_code == 403
+
+
+def test_bar_dashboard_renders_for_member(app):
+    with app.app_context():
+        creator = _create_user('bd_creator', is_admin=True)
+        bar = Bar(name='CactusZZZ', created_by_id=creator.id,
+                  created_at=datetime.utcnow())
+        member = _create_user('bd_member')
+        db.session.add(bar)
+        db.session.flush()
+        db.session.add(BarMembership(user_id=member.id, bar_id=bar.id,
+                                     is_primary=True))
+        db.session.commit()
+        bid = bar.id
+    client = app.test_client()
+    _login(client, 'bd_member')
+    resp = client.get(f'/bar/{bid}')
+    assert resp.status_code == 200
+    assert b'CactusZZZ' in resp.data

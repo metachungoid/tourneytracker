@@ -5,6 +5,7 @@ from routes.tournaments import bp as tournaments_bp
 from routes.admin import bp as admin_bp
 from routes.settings import bp as settings_bp
 from routes.leagues import bp as leagues_bp
+from routes.bars import bp as bars_bp
 
 
 def register_routes(app):
@@ -15,3 +16,4 @@ def register_routes(app):
     app.register_blueprint(admin_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(leagues_bp)
+    app.register_blueprint(bars_bp)

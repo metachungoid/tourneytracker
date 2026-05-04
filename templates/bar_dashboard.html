@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}{{ bar.name }} — TourneyTracker{% endblock %}
+{% block content %}
+<header class="page-hero">
+  <div>
+    <div class="page-hero__mark">BAR · {{ current_user.username }}</div>
+    <h1 class="page-hero__title">{{ bar.name }}</h1>
+    {% if bar.address %}<p class="page-hero__sub">{{ bar.address }}</p>{% endif %}
+  </div>
+</header>
+
+<div class="admin-grid">
+  <section class="admin-block">
+    <div class="section-head"><h2 class="section-head__title">Leagues sponsored</h2></div>
+    {% if sponsorships %}
+      <ul class="sponsors-list">
+        {% for ls in sponsorships %}
+          <li>{{ ls.league.name }}</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">Not sponsoring any league yet.</p>
+    {% endif %}
+  </section>
+
+  {% if is_primary %}
+    <section class="admin-block">
+      <div class="section-head"><h2 class="section-head__title">Bar staff</h2></div>
+      <ul class="sponsors-list">
+        {% for m in staff %}
+          <li>
+            {{ m.user.username }}
+            {% if m.is_primary %}<span class="badge">primary</span>{% endif %}
+            {% if not m.is_primary %}
+              <form method="post" action="{{ url_for('bars.remove_staff', bid=bar.id, mid=m.id) }}" style="display:inline">
+                <button class="btn btn-link btn-danger">Remove</button>
+              </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      <form method="post" action="{{ url_for('bars.invite_staff', bid=bar.id) }}" class="form-stack form-stack--inline">
+        <input type="text" name="username" class="form-control" placeholder="Staff username" required>
+        <input type="password" name="password" class="form-control" placeholder="Password (6+ chars)" minlength="6" required>
+        <button class="btn btn-primary">Invite staff</button>
+      </form>
+    </section>
+  {% endif %}
+
+  <section class="admin-block">
+    <div class="section-head"><h2 class="section-head__title">Recreational tournaments</h2></div>
+    {% if tournaments %}
+      <ul class="sponsors-list">
+        {% for t in tournaments %}
+          <li><a href="{{ url_for('tournaments.tournament', tid=t.id) }}">{{ t.name }}</a></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No bar tournaments yet.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('bars.new_bar_tournament', bid=bar.id) }}" class="form-stack form-stack--inline">
+      <input type="text" name="name" class="form-control" placeholder="Tournament name" required>
+      <button class="btn btn-primary">Create tournament</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

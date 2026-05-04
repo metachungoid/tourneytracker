@@ -406,7 +406,7 @@ class BarMembership(db.Model):
     bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
     is_primary = db.Column(db.Boolean, nullable=False, default=False)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    user = db.relationship('User', foreign_keys=[user_id], backref='bar_memberships')
     bar = db.relationship(
         'Bar', foreign_keys=[bar_id],
         backref=db.backref('memberships', cascade='all, delete-orphan')
