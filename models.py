@@ -359,6 +359,17 @@ class Tournament(db.Model):
         return round(self.actual_games_played * (self.table_fee or 0), 2)
 
 
+class Bar(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    address = db.Column(db.String(200), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=True)
+
+    creator = db.relationship('Admin', foreign_keys=[created_by_id])
+
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)

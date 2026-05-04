@@ -66,6 +66,14 @@ with app.app_context():
         "ALTER TABLE player_profile ADD COLUMN league_id INTEGER REFERENCES league(id)",
         "ALTER TABLE tournament ADD COLUMN league_id INTEGER REFERENCES league(id)",
         "ALTER TABLE manager_share ADD COLUMN league_id INTEGER REFERENCES league(id)",
+        """CREATE TABLE IF NOT EXISTS bar (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(120) NOT NULL,
+    address VARCHAR(200),
+    phone VARCHAR(30),
+    created_by_id INTEGER REFERENCES admin(id),
+    created_at TIMESTAMP
+)""",
     ]:
         try:
             db.session.execute(db.text(col_sql))
