@@ -40,7 +40,7 @@ def inject_league_context():
 
 def create_default_admin():
     if not Admin.query.filter_by(username='admin').first():
-        a = Admin(username='admin')
+        a = Admin(username='admin', role='admin', is_admin=True, is_league_operator=False)
         a.set_password('admin123')
         db.session.add(a)
         db.session.commit()
@@ -55,6 +55,10 @@ with app.app_context():
         "ALTER TABLE tournament ADD COLUMN lb_format VARCHAR(20) DEFAULT 'bestof'",
         "ALTER TABLE tournament ADD COLUMN lb_race_to INTEGER DEFAULT 1",
         "ALTER TABLE admin ADD COLUMN role VARCHAR(20) DEFAULT 'admin'",
+        "ALTER TABLE admin ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE admin ADD COLUMN is_league_operator BOOLEAN NOT NULL DEFAULT 0",
+        "UPDATE admin SET is_admin = 1 WHERE role = 'admin' AND is_admin = 0",
+        "UPDATE admin SET is_league_operator = 1 WHERE role = 'manager' AND is_league_operator = 0",
         "ALTER TABLE tournament ADD COLUMN owner_id INTEGER REFERENCES admin(id)",
         "ALTER TABLE player_profile ADD COLUMN first_name VARCHAR(50)",
         "ALTER TABLE player_profile ADD COLUMN last_name VARCHAR(50)",

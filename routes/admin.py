@@ -55,6 +55,8 @@ def admin_add_user():
         flash(f'Username "{username}" is already taken.', 'danger')
         return redirect(url_for('admin.admin_panel'))
     a = Admin(username=username, role=role)
+    a.is_admin = (role == 'admin')
+    a.is_league_operator = (role == 'manager')
     a.set_password(password)
     db.session.add(a)
     db.session.commit()

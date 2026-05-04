@@ -33,7 +33,8 @@ def _get_or_create_test_league():
         return league
     admin = Admin.query.filter_by(username='testadmin').first()
     if not admin:
-        admin = Admin(username='testadmin', role='admin')
+        admin = Admin(username='testadmin', role='admin',
+                      is_admin=True, is_league_operator=False)
         admin.set_password('test123')
         _db.session.add(admin)
         _db.session.flush()
