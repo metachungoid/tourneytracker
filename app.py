@@ -66,6 +66,7 @@ with app.app_context():
         "ALTER TABLE player_profile ADD COLUMN league_id INTEGER REFERENCES league(id)",
         "ALTER TABLE tournament ADD COLUMN league_id INTEGER REFERENCES league(id)",
         "ALTER TABLE manager_share ADD COLUMN league_id INTEGER REFERENCES league(id)",
+        "ALTER TABLE player_profile ADD COLUMN user_id INTEGER REFERENCES admin(id)",
         """CREATE TABLE IF NOT EXISTS bar (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(120) NOT NULL,

@@ -86,6 +86,7 @@ class PlayerProfile(db.Model):
     first_name = db.Column(db.String(50), nullable=True)
     last_name = db.Column(db.String(50), nullable=True)
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
     phone = db.Column(db.String(30), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     fargo_rating = db.Column(db.Integer, nullable=True)

@@ -84,3 +84,24 @@ def test_can_promote_user_admin_only(app):
         op = _make_user(is_league_operator=True, username='po')
         assert can_promote_user(admin) is True
         assert can_promote_user(op) is False
+
+
+from models import PlayerProfile
+
+
+def test_player_profile_user_id_optional(app):
+    with app.app_context():
+        admin = _make_user(is_admin=True, username='pp_admin')
+        from models import League
+        league = League(name='L', owner_id=admin.id)
+        db.session.add(league)
+        db.session.flush()
+        # Without user_id
+        p1 = PlayerProfile(first_name='Anon', last_name='', league_id=league.id)
+        # With user_id linking back to a user
+        p2 = PlayerProfile(first_name='Linked', last_name='', league_id=league.id,
+                           user_id=admin.id)
+        db.session.add_all([p1, p2])
+        db.session.commit()
+        assert PlayerProfile.query.filter_by(first_name='Anon').first().user_id is None
+        assert PlayerProfile.query.filter_by(first_name='Linked').first().user_id == admin.id
