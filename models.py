@@ -370,6 +370,25 @@ class Bar(db.Model):
     creator = db.relationship('Admin', foreign_keys=[created_by_id])
 
 
+class BarMembership(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
+    is_primary = db.Column(db.Boolean, nullable=False, default=False)
+
+    user = db.relationship('Admin', foreign_keys=[user_id])
+    bar = db.relationship(
+        'Bar', foreign_keys=[bar_id],
+        backref=db.backref('memberships', cascade='all, delete-orphan')
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'bar_id', name='uq_bar_membership_user_bar'),
+        db.Index('uq_bar_membership_primary', 'bar_id',
+                 unique=True, sqlite_where=db.text('is_primary = 1')),
+    )
+
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)

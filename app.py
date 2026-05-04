@@ -74,6 +74,14 @@ with app.app_context():
     created_by_id INTEGER REFERENCES admin(id),
     created_at TIMESTAMP
 )""",
+        """CREATE TABLE IF NOT EXISTS bar_membership (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES admin(id),
+    bar_id INTEGER NOT NULL REFERENCES bar(id),
+    is_primary BOOLEAN NOT NULL DEFAULT 0,
+    UNIQUE (user_id, bar_id)
+)""",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_bar_membership_primary ON bar_membership (bar_id) WHERE is_primary = 1",
     ]:
         try:
             db.session.execute(db.text(col_sql))
