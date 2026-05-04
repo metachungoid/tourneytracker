@@ -101,6 +101,34 @@
 </p>
 {% endif %}
 
+<!-- Sponsors -->
+<section class="admin-block mt-5">
+  <div class="section-head">
+    <h4 class="section-head__title"><i class="bi bi-building me-2 text-secondary"></i>Sponsors</h4>
+    <span class="section-head__count badge bg-secondary">{{ sponsorships|length }}</span>
+  </div>
+  {% if sponsorships %}
+    <ul class="sponsors-list list-unstyled mt-2">
+      {% for ls in sponsorships %}
+        <li class="sponsors-list__item d-flex align-items-center gap-3 py-2 border-bottom">
+          <span class="sponsors-list__name fw-semibold">{{ ls.bar.name }}</span>
+          {% set primary = ls.bar.memberships|selectattr('is_primary')|first %}
+          {% if primary %}
+            <span class="sponsors-list__primary text-muted small">{{ primary.user.username }}</span>
+          {% endif %}
+          <form method="post"
+                action="{{ url_for('leagues.remove_sponsor', lid=league.id, sid=ls.id) }}"
+                style="display:inline">
+            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+          </form>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted mt-2">No sponsors yet.</p>
+  {% endif %}
+</section>
+
 <!-- Delete League -->
 {% if not tournaments and player_count == 0 %}
 <hr class="mt-5">

@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from flask_login import login_required, current_user
 from app import db
-from models import League, Tournament, PlayerProfile, ManagerShare
+from models import League, Tournament, PlayerProfile, ManagerShare, LeagueSponsorship
 
 bp = Blueprint('leagues', __name__)
 
@@ -48,8 +48,10 @@ def league_dashboard(lid):
         Tournament.tournament_date.desc().nullslast(), Tournament.id.desc()
     ).all()
     player_count = PlayerProfile.query.filter_by(league_id=lid).count()
+    sponsorships = LeagueSponsorship.query.filter_by(league_id=lid).all()
     return render_template('league_dashboard.html', league=league,
-                           tournaments=tournaments, player_count=player_count)
+                           tournaments=tournaments, player_count=player_count,
+                           sponsorships=sponsorships)
 
 
 @bp.route('/league/<int:lid>/edit', methods=['GET', 'POST'])
@@ -85,3 +87,17 @@ def delete_league(lid):
     db.session.commit()
     flash(f'League "{league.name}" deleted.', 'info')
     return redirect(url_for('leagues.league_list'))
+
+
+@bp.route('/league/<int:lid>/sponsor/<int:sid>/remove', methods=['POST'])
+@login_required
+def remove_sponsor(lid, sid):
+    league = League.query.get_or_404(lid)
+    _check_league_access(league)
+    ls = LeagueSponsorship.query.get_or_404(sid)
+    if ls.league_id != lid:
+        abort(404)
+    db.session.delete(ls)
+    db.session.commit()
+    flash('Sponsor removed from league.', 'info')
+    return redirect(url_for('leagues.league_dashboard', lid=lid))
