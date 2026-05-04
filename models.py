@@ -390,3 +390,6 @@ class Match(db.Model):
     player1 = db.relationship('Participant', foreign_keys=[player1_id])
     player2 = db.relationship('Participant', foreign_keys=[player2_id])
     winner = db.relationship('Participant', foreign_keys=[winner_id])
+
+# Transitional alias — Task 11 renames Admin to User and removes this line.
+User = Admin
