@@ -33,10 +33,25 @@ def new_team(bid):
 @bp.route('/team/<int:tid>')
 @login_required
 def team_dashboard(tid):
+    from models import PlayerProfile, TeamMembership
     team = Team.query.get_or_404(tid)
     if not (team.can_manage_roster(current_user) or team.is_member(current_user)):
         abort(403)
-    return render_template('team_dashboard.html', team=team)
+    roster = TeamMembership.query.filter_by(team_id=tid).all()
+    rostered_profile_ids = [m.profile_id for m in roster]
+    if rostered_profile_ids:
+        invitable = PlayerProfile.query.filter(
+            PlayerProfile.league_id == team.league_id,
+            ~PlayerProfile.id.in_(rostered_profile_ids),
+        ).order_by(PlayerProfile.first_name, PlayerProfile.last_name).all()
+    else:
+        invitable = PlayerProfile.query.filter_by(league_id=team.league_id).order_by(
+            PlayerProfile.first_name, PlayerProfile.last_name
+        ).all()
+    return render_template('team_dashboard.html', team=team,
+                           roster=roster, invitable=invitable,
+                           can_manage=team.can_manage_roster(current_user),
+                           can_assign_sk=team.can_assign_scorekeeper(current_user))
 
 
 @bp.route('/team/<int:tid>/roster/add', methods=['POST'])
@@ -77,3 +92,15 @@ def roster_remove(tid, mid):
     db.session.commit()
     flash('Removed from roster.', 'info')
     return redirect(url_for('teams.team_dashboard', tid=tid))
+
+
+@bp.route('/team/<int:tid>/roster/<int:mid>/role', methods=['POST'])
+@login_required
+def roster_role(tid, mid):
+    abort(404)
+
+
+@bp.route('/team/<int:tid>/roster/<int:mid>/scorekeeper', methods=['POST'])
+@login_required
+def roster_scorekeeper(tid, mid):
+    abort(404)
