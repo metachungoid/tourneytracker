@@ -37,3 +37,43 @@ def team_dashboard(tid):
     if not (team.can_manage_roster(current_user) or team.is_member(current_user)):
         abort(403)
     return render_template('team_dashboard.html', team=team)
+
+
+@bp.route('/team/<int:tid>/roster/add', methods=['POST'])
+@login_required
+def roster_add(tid):
+    from models import PlayerProfile, TeamMembership
+    team = Team.query.get_or_404(tid)
+    if not team.can_manage_roster(current_user):
+        abort(403)
+    profile_id = request.form.get('profile_id', type=int)
+    if not profile_id:
+        flash('Pick a player.', 'danger')
+        return redirect(url_for('teams.team_dashboard', tid=tid))
+    profile = PlayerProfile.query.get_or_404(profile_id)
+    if profile.league_id != team.league_id:
+        flash('Player is not in this league.', 'danger')
+        return redirect(url_for('teams.team_dashboard', tid=tid))
+    if TeamMembership.query.filter_by(team_id=tid, profile_id=profile_id).first():
+        flash(f'{profile.full_name} is already on this team.', 'warning')
+        return redirect(url_for('teams.team_dashboard', tid=tid))
+    db.session.add(TeamMembership(team_id=tid, profile_id=profile_id))
+    db.session.commit()
+    flash(f'{profile.full_name} added to roster.', 'success')
+    return redirect(url_for('teams.team_dashboard', tid=tid))
+
+
+@bp.route('/team/<int:tid>/roster/<int:mid>/remove', methods=['POST'])
+@login_required
+def roster_remove(tid, mid):
+    from models import TeamMembership
+    team = Team.query.get_or_404(tid)
+    if not team.can_manage_roster(current_user):
+        abort(403)
+    m = TeamMembership.query.get_or_404(mid)
+    if m.team_id != tid:
+        abort(404)
+    db.session.delete(m)
+    db.session.commit()
+    flash('Removed from roster.', 'info')
+    return redirect(url_for('teams.team_dashboard', tid=tid))

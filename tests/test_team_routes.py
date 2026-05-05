@@ -1,6 +1,6 @@
 from datetime import datetime
 from app import db
-from models import User, Bar, BarMembership, League, LeagueSponsorship, Team
+from models import User, Bar, BarMembership, League, LeagueSponsorship, Team, PlayerProfile, TeamMembership
 
 
 def _create_user(username, password='secret123', **flags):
@@ -72,4 +72,55 @@ def test_create_team_outsider_denied(app):
     resp = client.post(f'/bar/{bid}/team/new', data={
         'name': 'Cactus A', 'league_id': str(lid),
     })
+    assert resp.status_code == 403
+
+
+def _team_with_profile(app):
+    creator, sponsor, bar, league = _seed_bar_and_league(app)
+    team = Team(name='Cactus A', bar_id=bar.id, league_id=league.id,
+                created_by_id=creator.id, created_at=datetime.utcnow())
+    db.session.add(team)
+    db.session.flush()
+    profile = PlayerProfile(first_name='Pat', last_name='Smith', league_id=league.id)
+    db.session.add(profile)
+    db.session.commit()
+    return creator, sponsor, bar, league, team, profile
+
+
+def test_add_to_roster(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        tid, pid = team.id, profile.id
+    client = app.test_client()
+    _login(client, 'tr_sponsor')
+    resp = client.post(f'/team/{tid}/roster/add', data={'profile_id': str(pid)})
+    assert resp.status_code == 302
+    with app.app_context():
+        m = TeamMembership.query.filter_by(team_id=tid, profile_id=pid).first()
+        assert m is not None
+
+
+def test_remove_from_roster(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        m = TeamMembership(team_id=team.id, profile_id=profile.id)
+        db.session.add(m)
+        db.session.commit()
+        tid, mid = team.id, m.id
+    client = app.test_client()
+    _login(client, 'tr_sponsor')
+    resp = client.post(f'/team/{tid}/roster/{mid}/remove')
+    assert resp.status_code == 302
+    with app.app_context():
+        assert TeamMembership.query.get(mid) is None
+
+
+def test_outsider_cannot_modify_roster(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        outsider = _create_user('roster_out')
+        tid, pid = team.id, profile.id
+    client = app.test_client()
+    _login(client, 'roster_out')
+    resp = client.post(f'/team/{tid}/roster/add', data={'profile_id': str(pid)})
     assert resp.status_code == 403
