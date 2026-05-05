@@ -1,15 +1,32 @@
-import pytest
-from app import app as flask_app, db as _db
-from models import Tournament, PlayerProfile, Participant, Match, Admin, League
+import os
+import tempfile
+
+# A file-backed SQLite database, set BEFORE app.py is imported so its
+# `db = SQLAlchemy(app)` engine is built against this URI. Using a file
+# (instead of :memory:) ensures every connection — including the ones the
+# Flask test_client opens per request — sees the same database. With
+# :memory:, separate connections get separate DBs and tests that committed
+# setup data flake nondeterministically.
+_TEST_DB_DIR = tempfile.mkdtemp(prefix='tourneytracker-test-')
+_TEST_DB_PATH = os.path.join(_TEST_DB_DIR, 'test.db')
+os.environ['DATABASE_URI'] = f'sqlite:///{_TEST_DB_PATH}'
+
+import pytest  # noqa: E402
+from app import app as flask_app, db as _db  # noqa: E402
+from models import Tournament, PlayerProfile, Participant, Match, Admin, League  # noqa: E402
 
 
 @pytest.fixture(scope='session')
 def app():
     flask_app.config['TESTING'] = True
-    flask_app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     with flask_app.app_context():
         _db.create_all()
         yield flask_app
+    try:
+        os.remove(_TEST_DB_PATH)
+        os.rmdir(_TEST_DB_DIR)
+    except OSError:
+        pass
 
 
 @pytest.fixture(autouse=True)
@@ -17,14 +34,17 @@ def clean_db(app):
     yield
     with app.app_context():
         # Drop any half-applied transaction the test may have left behind, then
-        # purge cached identities so the next test sees a fresh session — without
-        # this, tests that share the session-scoped app context can hit
-        # "UNIQUE constraint failed" when SQLAlchemy re-flushes a stale row.
+        # purge cached identities so the next test sees a fresh session.
         _db.session.rollback()
         for table in reversed(_db.metadata.sorted_tables):
             _db.session.execute(table.delete())
         _db.session.commit()
         _db.session.remove()
+        # Dispose connections so the next test can't read through SQLite's
+        # connection-level read snapshot. Without this, a request handler that
+        # opens its own session/connection during the test can hold a snapshot
+        # that pre-dates the cleanup commits, surfacing rows we just deleted.
+        _db.engine.dispose()
     # Clear Flask-Login's cached user from the outer app context's g so the
     # next test's requests go through _load_user() rather than reusing stale state.
     # (g is app-context-scoped in Flask, so this must run outside any nested context.)
