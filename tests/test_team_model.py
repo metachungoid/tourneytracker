@@ -138,3 +138,78 @@ def test_many_scorekeepers_allowed(app):
             db.session.add(TeamMembership(team_id=team.id, profile_id=p.id, is_scorekeeper=True))
         db.session.commit()
         assert TeamMembership.query.filter_by(team_id=team.id, is_scorekeeper=True).count() == 3
+
+
+from auth_helpers import can_create_team
+
+
+def test_can_create_team_requires_sponsorship(app):
+    with app.app_context():
+        admin = _user('cct_admin', is_admin=True)
+        bar = Bar(name='B', created_by_id=admin.id, created_at=datetime.utcnow())
+        league = League(name='L', owner_id=admin.id)
+        db.session.add_all([bar, league])
+        db.session.commit()
+        # No LeagueSponsorship row → cannot create even as admin? Yes, because creation
+        # is gated on sponsorship existing for non-admins. Admins always pass.
+        assert can_create_team(admin, bar, league) is True
+
+        sponsor = _user('cct_sponsor')
+        from models import BarMembership
+        db.session.add(BarMembership(user_id=sponsor.id, bar_id=bar.id, is_primary=True))
+        db.session.commit()
+        # Bar member but no sponsorship → False.
+        assert can_create_team(sponsor, bar, league) is False
+
+        db.session.add(LeagueSponsorship(league_id=league.id, bar_id=bar.id,
+                                         invited_by_id=admin.id,
+                                         invited_at=datetime.utcnow()))
+        db.session.commit()
+        assert can_create_team(sponsor, bar, league) is True
+
+
+def test_team_can_manage_roster(app):
+    with app.app_context():
+        u, bar, league, team, profile = _team_with_player(app)
+        admin = u  # already admin
+        assert team.can_manage_roster(admin) is True
+
+        outsider = _user('tcr_outsider')
+        assert team.can_manage_roster(outsider) is False
+
+        from models import BarMembership
+        staff = _user('tcr_staff')
+        db.session.add(BarMembership(user_id=staff.id, bar_id=bar.id, is_primary=False))
+        db.session.commit()
+        assert team.can_manage_roster(staff) is True
+
+
+def test_team_can_assign_scorekeeper(app):
+    with app.app_context():
+        u, bar, league, team, profile = _team_with_player(app)
+        admin = u
+        assert team.can_assign_scorekeeper(admin) is True
+
+        # Captain assigned via team membership; profile.user_id linked.
+        captain_user = _user('cap')
+        profile.user_id = captain_user.id
+        m = TeamMembership(team_id=team.id, profile_id=profile.id, is_captain=True)
+        db.session.add(m)
+        db.session.commit()
+        assert team.can_assign_scorekeeper(captain_user) is True
+
+        outsider = _user('cap_outsider')
+        assert team.can_assign_scorekeeper(outsider) is False
+
+
+def test_team_is_member(app):
+    with app.app_context():
+        u, bar, league, team, profile = _team_with_player(app)
+        member_user = _user('member')
+        profile.user_id = member_user.id
+        db.session.add(TeamMembership(team_id=team.id, profile_id=profile.id))
+        db.session.commit()
+        assert team.is_member(member_user) is True
+
+        non_member = _user('non_member')
+        assert team.is_member(non_member) is False

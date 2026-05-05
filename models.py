@@ -462,6 +462,36 @@ class Team(db.Model):
     creator = db.relationship('User', foreign_keys=[created_by_id])
     # memberships backref is added via TeamMembership.team relationship below
 
+    def can_manage_roster(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        return self.bar.can_manage(user)
+
+    def can_assign_scorekeeper(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        if self.can_manage_roster(user):
+            return True
+        # captain or co-captain on this team
+        return TeamMembership.query.filter(
+            TeamMembership.team_id == self.id,
+            db.or_(TeamMembership.is_captain == True,    # noqa: E712
+                   TeamMembership.is_co_captain == True),  # noqa: E712
+            TeamMembership.profile.has(user_id=user.id),
+        ).first() is not None
+
+    def is_member(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        return TeamMembership.query.filter(
+            TeamMembership.team_id == self.id,
+            TeamMembership.profile.has(user_id=user.id),
+        ).first() is not None
+
 
 class TeamMembership(db.Model):
     id = db.Column(db.Integer, primary_key=True)
