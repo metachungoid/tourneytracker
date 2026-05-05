@@ -158,3 +158,43 @@ def test_make_captain_with_existing_user_id(app):
     with app.app_context():
         m = TeamMembership.query.get(mid)
         assert m.is_captain is True
+
+
+def test_captain_assigns_scorekeeper(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        captain_user = _create_user('cap_user')
+        profile.user_id = captain_user.id
+        cap_m = TeamMembership(team_id=team.id, profile_id=profile.id, is_captain=True)
+        db.session.add(cap_m)
+        # Another player to make scorekeeper
+        p2 = PlayerProfile(first_name='SK', last_name='Player', league_id=league.id)
+        sk_user = _create_user('sk_user')
+        p2.user_id = sk_user.id
+        db.session.add(p2)
+        db.session.flush()
+        sk_m = TeamMembership(team_id=team.id, profile_id=p2.id)
+        db.session.add(sk_m)
+        db.session.commit()
+        tid, mid = team.id, sk_m.id
+    client = app.test_client()
+    _login(client, 'cap_user')
+    resp = client.post(f'/team/{tid}/roster/{mid}/scorekeeper')
+    assert resp.status_code == 302
+    with app.app_context():
+        m = TeamMembership.query.get(mid)
+        assert m.is_scorekeeper is True
+
+
+def test_random_player_cannot_assign_scorekeeper(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        plain = _create_user('plain_player')
+        m = TeamMembership(team_id=team.id, profile_id=profile.id)
+        db.session.add(m)
+        db.session.commit()
+        tid, mid = team.id, m.id
+    client = app.test_client()
+    _login(client, 'plain_player')
+    resp = client.post(f'/team/{tid}/roster/{mid}/scorekeeper')
+    assert resp.status_code == 403

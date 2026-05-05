@@ -93,3 +93,39 @@ def test_interstitial_duplicate_username_re_renders(app):
     with app.app_context():
         m = TeamMembership.query.get(mid)
         assert m.is_captain is False
+
+
+def test_scorekeeper_inline_account_creation(app):
+    with app.app_context():
+        tid, mid = _seed(app)
+        # Captain has a user; the player getting scorekeeper does not.
+        m = TeamMembership.query.get(mid)
+        captain_user = _create_user('ac_captain_login')
+        m.profile.user_id = captain_user.id
+        m.is_captain = True
+        # Add a second player without user_id
+        from models import TeamMembership as TM
+        p2 = PlayerProfile(first_name='Side', last_name='Kick',
+                           league_id=Team.query.get(tid).league_id)
+        db.session.add(p2)
+        db.session.flush()
+        sk_m = TM(team_id=tid, profile_id=p2.id)
+        db.session.add(sk_m)
+        db.session.commit()
+        sk_mid = sk_m.id
+    client = app.test_client()
+    _login(client, 'ac_captain_login')
+    resp = client.post(f'/team/{tid}/roster/{sk_mid}/scorekeeper')
+    assert resp.status_code == 200
+    assert b'Create login for' in resp.data
+
+    resp = client.post(f'/team/{tid}/roster/{sk_mid}/scorekeeper', data={
+        'create_account': '1',
+        'username': 'side.kick',
+        'password': 'secret123',
+    })
+    assert resp.status_code == 302
+    with app.app_context():
+        m = TeamMembership.query.get(sk_mid)
+        assert m.is_scorekeeper is True
+        assert m.profile.user_id is not None

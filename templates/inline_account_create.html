@@ -10,8 +10,10 @@
 
 <p>Promoting this player to <strong>{{ role.replace('_', ' ').title() }}</strong> requires a login. Pick a username and password to share with them out-of-band.</p>
 
-<form method="post" action="{{ url_for('teams.roster_role', tid=team.id, mid=membership.id) }}" class="form-stack">
+<form method="post" action="{{ url_for(target_endpoint, tid=team.id, mid=membership.id) }}" class="form-stack">
+  {% if role != 'scorekeeper' %}
   <input type="hidden" name="role" value="{{ role }}">
+  {% endif %}
   <input type="hidden" name="create_account" value="1">
   <div class="form-field">
     <label class="form-label">Username</label>
