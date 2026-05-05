@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}{{ team.name }} — TourneyTracker{% endblock %}
+{% block content %}
+<header class="page-hero">
+  <h1 class="page-hero__title">{{ team.name }}</h1>
+  <p class="page-hero__sub">{{ team.bar.name }} · {{ team.league.name }}</p>
+</header>
+<p class="muted">Roster management lands in the next task.</p>
+{% endblock %}

@@ -63,5 +63,31 @@
       <button class="btn btn-primary">Create tournament</button>
     </form>
   </section>
+
+  <section class="admin-block">
+    <div class="section-head">
+      <h2 class="section-head__title">Teams</h2>
+    </div>
+    {% set bar_teams = bar.teams %}
+    {% if bar_teams %}
+      <ul class="sponsors-list">
+        {% for t in bar_teams %}
+          <li><a href="{{ url_for('teams.team_dashboard', tid=t.id) }}">{{ t.name }}</a> <span class="muted">· {{ t.league.name }}</span></li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No teams yet.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('teams.new_team', bid=bar.id) }}" class="form-stack form-stack--inline">
+      <input type="text" name="name" class="form-control" placeholder="Team name" required>
+      <select name="league_id" class="form-control" required>
+        <option value="">Pick a league…</option>
+        {% for ls in sponsorships %}
+          <option value="{{ ls.league_id }}">{{ ls.league.name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary">Create team</button>
+    </form>
+  </section>
 </div>
 {% endblock %}
