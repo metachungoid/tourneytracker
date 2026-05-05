@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
 from flask_login import login_required, current_user
+from sqlalchemy.exc import IntegrityError
 from app import db
 from models import Bar, League, LeagueSponsorship, Team
 from auth_helpers import can_create_team
@@ -146,7 +147,16 @@ def roster_role(tid, mid):
         m.profile.user_id = new_user.id
 
     setattr(m, flag_attr, True)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # The partial unique index on (team_id) WHERE is_captain=1 (or
+        # is_co_captain=1) caught a duplicate. Surface a flash instead of
+        # bubbling up a 500.
+        db.session.rollback()
+        title = role.replace('_', ' ').title()
+        flash(f'This team already has a {title}. Demote them first.', 'danger')
+        return redirect(url_for('teams.team_dashboard', tid=tid))
     flash(f'{m.profile.full_name} promoted to {role.replace("_", " ").title()}.', 'success')
     return redirect(url_for('teams.team_dashboard', tid=tid))
 

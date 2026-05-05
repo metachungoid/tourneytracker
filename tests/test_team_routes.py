@@ -198,3 +198,35 @@ def test_random_player_cannot_assign_scorekeeper(app):
     _login(client, 'plain_player')
     resp = client.post(f'/team/{tid}/roster/{mid}/scorekeeper')
     assert resp.status_code == 403
+
+
+def test_second_captain_rejected_with_flash(app):
+    """The partial unique index protects the DB; the route must catch
+    the IntegrityError and surface a flash + redirect, not a 500."""
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        # First captain
+        u1 = _create_user('cap1_user')
+        profile.user_id = u1.id
+        cap1 = TeamMembership(team_id=team.id, profile_id=profile.id, is_captain=True)
+        # Second profile, no current captain flag
+        p2 = PlayerProfile(first_name='Second', last_name='Cap', league_id=league.id)
+        u2 = _create_user('cap2_user')
+        p2.user_id = u2.id
+        db.session.add_all([cap1, p2])
+        db.session.flush()
+        m2 = TeamMembership(team_id=team.id, profile_id=p2.id)
+        db.session.add(m2)
+        db.session.commit()
+        tid, mid = team.id, m2.id
+    client = app.test_client()
+    _login(client, 'tr_sponsor')
+    resp = client.post(f'/team/{tid}/roster/{mid}/role', data={'role': 'captain'},
+                       follow_redirects=False)
+    assert resp.status_code == 302
+    with app.app_context():
+        m = TeamMembership.query.get(mid)
+        assert m.is_captain is False, 'second captain must not be set'
+        # Original captain still in place
+        first = TeamMembership.query.filter_by(team_id=tid, is_captain=True).all()
+        assert len(first) == 1
