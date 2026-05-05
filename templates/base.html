@@ -55,6 +55,13 @@
             </a>
           </li>
         {% endif %}
+        {% if current_user.is_authenticated %}
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('teams.my_teams') }}">
+            <i class="bi bi-people me-1"></i>My Teams
+          </a>
+        </li>
+        {% endif %}
         {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto">

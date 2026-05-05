@@ -197,3 +197,18 @@ def roster_scorekeeper(tid, mid):
     db.session.commit()
     flash(f'{m.profile.full_name} can now keep score.', 'success')
     return redirect(url_for('teams.team_dashboard', tid=tid))
+
+
+@bp.route('/my-teams')
+@login_required
+def my_teams():
+    from models import PlayerProfile, TeamMembership
+    profiles = PlayerProfile.query.filter_by(user_id=current_user.id).all()
+    profile_ids = [p.id for p in profiles]
+    if profile_ids:
+        memberships = TeamMembership.query.filter(
+            TeamMembership.profile_id.in_(profile_ids)
+        ).all()
+    else:
+        memberships = []
+    return render_template('my_teams.html', memberships=memberships)
