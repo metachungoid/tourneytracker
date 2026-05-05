@@ -97,7 +97,55 @@ def roster_remove(tid, mid):
 @bp.route('/team/<int:tid>/roster/<int:mid>/role', methods=['POST'])
 @login_required
 def roster_role(tid, mid):
-    abort(404)
+    from models import TeamMembership, User
+    team = Team.query.get_or_404(tid)
+    if not team.can_manage_roster(current_user):
+        abort(403)
+    m = TeamMembership.query.get_or_404(mid)
+    if m.team_id != tid:
+        abort(404)
+    role = request.form.get('role', '')
+    if role == 'sub':
+        m.is_sub = not m.is_sub
+        db.session.commit()
+        return redirect(url_for('teams.team_dashboard', tid=tid))
+    if role not in ('captain', 'co_captain'):
+        abort(400)
+
+    flag_attr = 'is_captain' if role == 'captain' else 'is_co_captain'
+    setting_to = not getattr(m, flag_attr)
+    if not setting_to:
+        # Demoting — never needs an account.
+        setattr(m, flag_attr, False)
+        db.session.commit()
+        return redirect(url_for('teams.team_dashboard', tid=tid))
+
+    # Promoting. Need a user account on the profile.
+    if m.profile.user_id is None:
+        if request.form.get('create_account') != '1':
+            return render_template('inline_account_create.html',
+                                   team=team, membership=m, role=role,
+                                   error=None)
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        if not username or len(password) < 6:
+            return render_template('inline_account_create.html',
+                                   team=team, membership=m, role=role,
+                                   error='Username and 6+ char password required.')
+        if User.query.filter_by(username=username).first():
+            return render_template('inline_account_create.html',
+                                   team=team, membership=m, role=role,
+                                   error=f'Username "{username}" is already taken.')
+        new_user = User(username=username, is_admin=False, is_league_operator=False)
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.flush()
+        m.profile.user_id = new_user.id
+
+    setattr(m, flag_attr, True)
+    db.session.commit()
+    flash(f'{m.profile.full_name} promoted to {role.replace("_", " ").title()}.', 'success')
+    return redirect(url_for('teams.team_dashboard', tid=tid))
 
 
 @bp.route('/team/<int:tid>/roster/<int:mid>/scorekeeper', methods=['POST'])

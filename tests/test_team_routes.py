@@ -124,3 +124,37 @@ def test_outsider_cannot_modify_roster(app):
     _login(client, 'roster_out')
     resp = client.post(f'/team/{tid}/roster/add', data={'profile_id': str(pid)})
     assert resp.status_code == 403
+
+
+def test_make_sub_no_account_needed(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        m = TeamMembership(team_id=team.id, profile_id=profile.id)
+        db.session.add(m)
+        db.session.commit()
+        tid, mid = team.id, m.id
+    client = app.test_client()
+    _login(client, 'tr_sponsor')
+    resp = client.post(f'/team/{tid}/roster/{mid}/role', data={'role': 'sub'})
+    assert resp.status_code == 302
+    with app.app_context():
+        m = TeamMembership.query.get(mid)
+        assert m.is_sub is True
+
+
+def test_make_captain_with_existing_user_id(app):
+    with app.app_context():
+        creator, sponsor, bar, league, team, profile = _team_with_profile(app)
+        existing_user = _create_user('existing_player')
+        profile.user_id = existing_user.id
+        m = TeamMembership(team_id=team.id, profile_id=profile.id)
+        db.session.add(m)
+        db.session.commit()
+        tid, mid = team.id, m.id
+    client = app.test_client()
+    _login(client, 'tr_sponsor')
+    resp = client.post(f'/team/{tid}/roster/{mid}/role', data={'role': 'captain'})
+    assert resp.status_code == 302
+    with app.app_context():
+        m = TeamMembership.query.get(mid)
+        assert m.is_captain is True
