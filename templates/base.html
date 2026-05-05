@@ -47,6 +47,14 @@
           </ul>
         </li>
         {% endif %}
+        {% if current_user.is_authenticated and current_user.bar_memberships %}
+          {% set m = current_user.bar_memberships|first %}
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('bars.bar_dashboard', bid=m.bar_id) }}">
+              <i class="bi bi-shop me-1"></i>My Bar
+            </a>
+          </li>
+        {% endif %}
         {% endif %}
       </ul>
       <ul class="navbar-nav ms-auto">
@@ -54,8 +62,8 @@
         <li class="nav-item">
           <span class="nav-link">
             {{ current_user.username }}
-            <span class="badge {% if current_user.is_admin %}bg-danger{% else %}bg-info{% endif %}">
-              {{ current_user.role }}
+            <span class="badge {% if current_user.is_admin %}bg-danger{% elif current_user.is_league_operator %}bg-info{% else %}bg-secondary{% endif %}">
+              {% if current_user.is_admin %}Admin{% elif current_user.is_league_operator %}Operator{% else %}User{% endif %}
             </span>
           </span>
         </li>

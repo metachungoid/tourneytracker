@@ -12,7 +12,7 @@ def settings():
     leagues = []
     shared_with_me = []
     other_managers = []
-    if current_user.is_manager:
+    if current_user.is_admin or current_user.is_league_operator:
         leagues = League.query.filter_by(owner_id=current_user.id).order_by(League.name).all()
         shared_with_me = ManagerShare.query.filter_by(delegate_id=current_user.id).all()
         # Build set of all current delegate IDs across all leagues
@@ -21,7 +21,7 @@ def settings():
             for s in lg.shares:
                 all_delegate_ids.add(s.delegate_id)
         other_managers = Admin.query.filter(
-            Admin.role == 'manager',
+            Admin.is_league_operator == True,  # noqa: E712
             Admin.id != current_user.id,
         ).order_by(Admin.username).all()
     return render_template('settings.html',
@@ -54,8 +54,8 @@ def change_password():
 @bp.route('/settings/add_delegate', methods=['POST'])
 @login_required
 def add_delegate():
-    if not current_user.is_manager:
-        flash('Only managers can share access.', 'danger')
+    if not (current_user.is_admin or current_user.is_league_operator):
+        flash('Only operators can share access.', 'danger')
         return redirect(url_for('settings.settings'))
     league_id = request.form.get('league_id', type=int)
     delegate_id = request.form.get('delegate_id', type=int)
@@ -67,7 +67,7 @@ def add_delegate():
         flash('You can only share your own leagues.', 'danger')
         return redirect(url_for('settings.settings'))
     delegate = Admin.query.get(delegate_id)
-    if not delegate or delegate.role != 'manager':
+    if not delegate or not delegate.is_league_operator:
         flash('Can only share with other manager accounts.', 'danger')
         return redirect(url_for('settings.settings'))
     if ManagerShare.query.filter_by(league_id=league_id, delegate_id=delegate_id).first():

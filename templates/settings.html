@@ -10,10 +10,10 @@
   </div>
   <div class="page-hero__stats">
     <div class="page-hero__stat">
-      <div class="page-hero__stat-value page-hero__stat-value--accent">{{ current_user.role|capitalize }}</div>
+      <div class="page-hero__stat-value page-hero__stat-value--accent">{% if current_user.is_admin %}Admin{% elif current_user.is_league_operator %}Operator{% else %}User{% endif %}</div>
       <div class="page-hero__stat-label">Role</div>
     </div>
-    {% if current_user.is_manager %}
+    {% if current_user.is_admin or current_user.is_league_operator %}
     <div class="page-hero__stat">
       <div class="page-hero__stat-value">{{ '%02d' % (leagues|length) }}</div>
       <div class="page-hero__stat-label">Owned</div>
@@ -57,7 +57,7 @@
   </form>
 </section>
 
-{% if current_user.is_manager %}
+{% if current_user.is_admin or current_user.is_league_operator %}
 <section style="margin-top: 3rem;">
   <div class="section-head">
     <h2 class="section-head__title">Shared Access</h2>

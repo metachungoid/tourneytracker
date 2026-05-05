@@ -40,7 +40,7 @@ def inject_league_context():
 
 def create_default_admin():
     if not Admin.query.filter_by(username='admin').first():
-        a = Admin(username='admin')
+        a = Admin(username='admin', is_admin=True, is_league_operator=False)
         a.set_password('admin123')
         db.session.add(a)
         db.session.commit()
@@ -48,20 +48,47 @@ def create_default_admin():
 
 
 with app.app_context():
+    from app_migrations import migrate_admin_to_user
+    migrate_admin_to_user(db.engine)
     db.create_all()
-    # Migration: add new columns for double elimination support
+    # Additive ALTER TABLEs — safe to re-run.
     for col_sql in [
         "ALTER TABLE tournament ADD COLUMN bracket_type VARCHAR(10) DEFAULT 'single'",
         "ALTER TABLE tournament ADD COLUMN lb_format VARCHAR(20) DEFAULT 'bestof'",
         "ALTER TABLE tournament ADD COLUMN lb_race_to INTEGER DEFAULT 1",
-        "ALTER TABLE admin ADD COLUMN role VARCHAR(20) DEFAULT 'admin'",
-        "ALTER TABLE tournament ADD COLUMN owner_id INTEGER REFERENCES admin(id)",
+        "ALTER TABLE tournament ADD COLUMN owner_id INTEGER REFERENCES user(id)",
+        "ALTER TABLE tournament ADD COLUMN bar_id INTEGER REFERENCES bar(id)",
         "ALTER TABLE player_profile ADD COLUMN first_name VARCHAR(50)",
         "ALTER TABLE player_profile ADD COLUMN last_name VARCHAR(50)",
-        "CREATE TABLE IF NOT EXISTS league (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(100) NOT NULL, owner_id INTEGER NOT NULL REFERENCES admin(id))",
         "ALTER TABLE player_profile ADD COLUMN league_id INTEGER REFERENCES league(id)",
+        "ALTER TABLE player_profile ADD COLUMN user_id INTEGER REFERENCES user(id)",
+        "CREATE TABLE IF NOT EXISTS league (id INTEGER PRIMARY KEY AUTOINCREMENT, name VARCHAR(100) NOT NULL, owner_id INTEGER NOT NULL REFERENCES user(id))",
         "ALTER TABLE tournament ADD COLUMN league_id INTEGER REFERENCES league(id)",
         "ALTER TABLE manager_share ADD COLUMN league_id INTEGER REFERENCES league(id)",
+        """CREATE TABLE IF NOT EXISTS bar (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name VARCHAR(120) NOT NULL,
+            address VARCHAR(200),
+            phone VARCHAR(30),
+            created_by_id INTEGER REFERENCES user(id),
+            created_at TIMESTAMP
+        )""",
+        """CREATE TABLE IF NOT EXISTS bar_membership (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES user(id),
+            bar_id INTEGER NOT NULL REFERENCES bar(id),
+            is_primary BOOLEAN NOT NULL DEFAULT 0,
+            UNIQUE (user_id, bar_id)
+        )""",
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_bar_membership_primary ON bar_membership (bar_id) WHERE is_primary = 1",
+        """CREATE TABLE IF NOT EXISTS league_sponsorship (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            league_id INTEGER NOT NULL REFERENCES league(id),
+            bar_id INTEGER NOT NULL REFERENCES bar(id),
+            invited_by_id INTEGER REFERENCES user(id),
+            invited_at TIMESTAMP,
+            UNIQUE (league_id, bar_id)
+        )""",
     ]:
         try:
             db.session.execute(db.text(col_sql))
@@ -69,7 +96,7 @@ with app.app_context():
         except Exception:
             db.session.rollback()
 
-    # Migrate legacy name → first_name + last_name
+    # Migrate legacy name → first_name + last_name (unchanged from before)
     from models import PlayerProfile, League, ManagerShare
     for p in PlayerProfile.query.filter(
         PlayerProfile.first_name.is_(None),
@@ -80,19 +107,20 @@ with app.app_context():
         p.last_name = parts[1] if len(parts) > 1 else ''
     db.session.commit()
 
-    # Migrate existing data into leagues (one default league per manager/admin who owns tournaments)
+    # Default-league migration (unchanged from before, but reads `User`)
+    from models import User, Tournament
     if League.query.count() == 0:
         owner_ids = {t.owner_id for t in Tournament.query.filter(
             Tournament.owner_id.isnot(None)
         ).all()}
-        for a in Admin.query.filter_by(role='manager').all():
-            owner_ids.add(a.id)
+        for u in User.query.filter_by(is_league_operator=True).all():
+            owner_ids.add(u.id)
         if not owner_ids:
-            admin_user = Admin.query.filter_by(role='admin').first()
+            admin_user = User.query.filter_by(is_admin=True).first()
             if admin_user:
                 owner_ids.add(admin_user.id)
         for oid in owner_ids:
-            owner = db.session.get(Admin, oid)
+            owner = db.session.get(User, oid)
             league = League(name=f"{owner.username}'s League", owner_id=oid)
             db.session.add(league)
             db.session.flush()
@@ -101,7 +129,6 @@ with app.app_context():
         if first_league:
             Tournament.query.filter(Tournament.league_id.is_(None)).update({'league_id': first_league.id})
             PlayerProfile.query.filter(PlayerProfile.league_id.is_(None)).update({'league_id': first_league.id})
-        # Migrate ManagerShare: owner_id → league_id
         for share in ManagerShare.query.filter(ManagerShare.league_id.is_(None)).all():
             league = League.query.filter_by(owner_id=share.owner_id).first()
             if league:

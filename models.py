@@ -16,19 +16,13 @@ def money_filter(value):
     return f'${v:.2f}'
 
 
-class Admin(db.Model, UserMixin):
+class User(db.Model, UserMixin):
+    __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    role = db.Column(db.String(20), nullable=False, default='admin')
-
-    @property
-    def is_admin(self):
-        return self.role == 'admin'
-
-    @property
-    def is_manager(self):
-        return self.role == 'manager'
+    is_admin = db.Column(db.Boolean, nullable=False, default=False)
+    is_league_operator = db.Column(db.Boolean, nullable=False, default=False)
 
     def set_password(self, pw):
         self.password_hash = generate_password_hash(pw)
@@ -36,12 +30,21 @@ class Admin(db.Model, UserMixin):
     def check_password(self, pw):
         return check_password_hash(self.password_hash, pw)
 
+    @property
+    def role(self):
+        """Backward-compat property — templates that still read .role get a string."""
+        if self.is_admin:
+            return 'admin'
+        if self.is_league_operator:
+            return 'manager'
+        return 'user'
+
 
 class League(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
-    owner = db.relationship('Admin', backref='leagues')
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    owner = db.relationship('User', backref='leagues')
     tournaments = db.relationship('Tournament', backref='league', lazy=True)
     players = db.relationship('PlayerProfile', backref='league', lazy=True)
 
@@ -60,18 +63,18 @@ class League(db.Model):
 class ManagerShare(db.Model):
     """Grants delegate_id access to all tournaments in a league."""
     id = db.Column(db.Integer, primary_key=True)
-    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)  # legacy, kept for migration
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # legacy, kept for migration
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
-    delegate_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)
+    delegate_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     __table_args__ = (db.UniqueConstraint('league_id', 'delegate_id'),)
 
     league = db.relationship('League', backref='shares')
-    delegate = db.relationship('Admin', foreign_keys=[delegate_id], backref='shares_received')
+    delegate = db.relationship('User', foreign_keys=[delegate_id], backref='shares_received')
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return db.session.get(Admin, int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 def get_user_leagues(user):
@@ -91,6 +94,7 @@ class PlayerProfile(db.Model):
     first_name = db.Column(db.String(50), nullable=True)
     last_name = db.Column(db.String(50), nullable=True)
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     phone = db.Column(db.String(30), nullable=True)
     email = db.Column(db.String(120), nullable=True)
     fargo_rating = db.Column(db.Integer, nullable=True)
@@ -139,9 +143,10 @@ class PlayerProfile(db.Model):
 class Tournament(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
-    owner = db.relationship('Admin', backref='tournaments')
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    owner = db.relationship('User', backref='tournaments')
     league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=True)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=True)
     buyin = db.Column(db.Integer, nullable=False, default=10)
     status = db.Column(db.String(20), default='open')   # open | bracket | complete
     tournament_date = db.Column(db.Date, nullable=True)
@@ -158,6 +163,7 @@ class Tournament(db.Model):
     runner_up_id = db.Column(db.Integer, db.ForeignKey('player_profile.id'), nullable=True)
     champion = db.relationship('PlayerProfile', foreign_keys=[champion_id])
     runner_up = db.relationship('PlayerProfile', foreign_keys=[runner_up_id])
+    bar = db.relationship('Bar', foreign_keys=[bar_id], backref='tournaments')
     participants = db.relationship(
         'Participant', backref='tournament', lazy=True, cascade='all, delete-orphan'
     )
@@ -169,13 +175,26 @@ class Tournament(db.Model):
     def is_double(self):
         return self.bracket_type == 'double'
 
+    @db.validates('league_id', 'bar_id')
+    def _validate_mutual_exclusion(self, key, value):
+        # Lazy: at validate-time some attrs may not exist yet.
+        other_key = 'bar_id' if key == 'league_id' else 'league_id'
+        other = getattr(self, other_key, None)
+        if value is not None and other is not None:
+            raise ValueError(
+                'A tournament belongs either to a league or to a bar, not both.'
+            )
+        return value
+
     def can_manage(self, user):
         if not user or not getattr(user, 'is_authenticated', False):
             return False
         if user.is_admin:
             return True
-        if self.league:
+        if self.league_id and self.league:
             return self.league.can_manage(user)
+        if self.bar_id and self.bar:
+            return self.bar.can_manage(user)
         return self.owner_id == user.id
 
     @property
@@ -364,6 +383,72 @@ class Tournament(db.Model):
         return round(self.actual_games_played * (self.table_fee or 0), 2)
 
 
+class Bar(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    address = db.Column(db.String(200), nullable=True)
+    phone = db.Column(db.String(30), nullable=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=True)
+
+    creator = db.relationship('User', foreign_keys=[created_by_id])
+
+    def can_manage(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        return BarMembership.query.filter_by(
+            bar_id=self.id, user_id=user.id
+        ).first() is not None
+
+    def can_manage_staff(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        m = BarMembership.query.filter_by(bar_id=self.id, user_id=user.id).first()
+        return bool(m and m.is_primary)
+
+
+class BarMembership(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
+    is_primary = db.Column(db.Boolean, nullable=False, default=False)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref='bar_memberships')
+    bar = db.relationship(
+        'Bar', foreign_keys=[bar_id],
+        backref=db.backref('memberships', cascade='all, delete-orphan')
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'bar_id', name='uq_bar_membership_user_bar'),
+        db.Index('uq_bar_membership_primary', 'bar_id',
+                 unique=True, sqlite_where=db.text('is_primary = 1')),
+    )
+
+
+class LeagueSponsorship(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=False)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
+    invited_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    invited_at = db.Column(db.DateTime, nullable=True)
+
+    league = db.relationship('League', foreign_keys=[league_id], backref='sponsorships')
+    bar = db.relationship(
+        'Bar', foreign_keys=[bar_id],
+        backref=db.backref('sponsorships', cascade='all, delete-orphan')
+    )
+    inviter = db.relationship('User', foreign_keys=[invited_by_id])
+
+    __table_args__ = (
+        db.UniqueConstraint('league_id', 'bar_id', name='uq_league_sponsorship'),
+    )
+
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)
@@ -390,3 +475,6 @@ class Match(db.Model):
     player1 = db.relationship('Participant', foreign_keys=[player1_id])
     player2 = db.relationship('Participant', foreign_keys=[player2_id])
     winner = db.relationship('Participant', foreign_keys=[winner_id])
+
+# Backward-compat alias — canonical name is User; Admin is kept for existing imports.
+Admin = User

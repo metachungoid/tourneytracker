@@ -16,9 +16,20 @@ def app():
 def clean_db(app):
     yield
     with app.app_context():
+        # Drop any half-applied transaction the test may have left behind, then
+        # purge cached identities so the next test sees a fresh session — without
+        # this, tests that share the session-scoped app context can hit
+        # "UNIQUE constraint failed" when SQLAlchemy re-flushes a stale row.
+        _db.session.rollback()
         for table in reversed(_db.metadata.sorted_tables):
             _db.session.execute(table.delete())
         _db.session.commit()
+        _db.session.remove()
+    # Clear Flask-Login's cached user from the outer app context's g so the
+    # next test's requests go through _load_user() rather than reusing stale state.
+    # (g is app-context-scoped in Flask, so this must run outside any nested context.)
+    from flask import g as flask_g
+    flask_g.pop('_login_user', None)
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +44,7 @@ def _get_or_create_test_league():
         return league
     admin = Admin.query.filter_by(username='testadmin').first()
     if not admin:
-        admin = Admin(username='testadmin', role='admin')
+        admin = Admin(username='testadmin', is_admin=True, is_league_operator=False)
         admin.set_password('test123')
         _db.session.add(admin)
         _db.session.flush()

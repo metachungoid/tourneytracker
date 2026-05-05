@@ -133,6 +133,76 @@
   {% endif %}
 </section>
 
+<section style="margin-top: 3rem;">
+  <div class="section-head">
+    <h2 class="section-head__title">Sponsors</h2>
+    <span class="section-head__count">{{ sponsorships|length }}</span>
+  </div>
+
+  {% if sponsorships %}
+  <ul class="delegate-list">
+    {% for ls in sponsorships %}
+    <li class="delegate-list__item">
+      <span class="delegate-list__name">
+        <span class="status-dot status-dot--live"></span>
+        {{ ls.bar.name }}
+        {% set primary = ls.bar.memberships|selectattr('is_primary')|first %}
+        {% if primary %}
+        <span class="tag tag--ghost ms-2">{{ primary.user.username }}</span>
+        {% endif %}
+      </span>
+      <form method="post" action="{{ url_for('leagues.remove_sponsor', lid=league.id, sid=ls.id) }}">
+        <button class="btn btn-outline-danger btn-xs" title="Remove sponsor">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="share-block__empty eyebrow">No sponsors yet</p>
+  {% endif %}
+
+  <div class="share-block" style="margin-top: 1.5rem;">
+    <header class="share-block__head">
+      <div>
+        <div class="eyebrow">Onboard · New bar</div>
+        <h3 class="share-block__title">Create a new sponsor</h3>
+      </div>
+    </header>
+    <form method="post" action="{{ url_for('leagues.onboard_sponsor', lid=league.id) }}" class="form-stack form-stack--inline">
+      <input type="text" name="bar_name" class="form-control" placeholder="Bar name" required>
+      <input type="text" name="sponsor_username" class="form-control" placeholder="Primary sponsor username" required>
+      <input type="password" name="sponsor_password" class="form-control" placeholder="Password (6+ chars)" minlength="6" required>
+      <button type="submit" class="btn btn-outline-primary btn-sm">
+        Create sponsor
+        <i class="bi bi-arrow-right"></i>
+      </button>
+    </form>
+  </div>
+
+  {% if invitable_bars %}
+  <div class="share-block" style="margin-top: 1rem;">
+    <header class="share-block__head">
+      <div>
+        <div class="eyebrow">Invite · Existing bar</div>
+        <h3 class="share-block__title">Add an existing sponsor</h3>
+      </div>
+    </header>
+    <form method="post" action="{{ url_for('leagues.invite_sponsor', lid=league.id) }}" class="form-stack form-stack--inline">
+      <select name="bar_id" class="form-select" required>
+        <option value="">Pick a bar…</option>
+        {% for b in invitable_bars %}
+        <option value="{{ b.id }}">{{ b.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline-primary btn-sm">
+        Invite
+        <i class="bi bi-arrow-right"></i>
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</section>
+
 {% if not tournaments and player_count == 0 %}
 <section class="danger-zone">
   <div class="danger-zone__mark">Danger Zone</div>

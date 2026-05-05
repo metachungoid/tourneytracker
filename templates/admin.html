@@ -92,12 +92,12 @@
         <span class="delegate-list__name">
           <span class="status-dot {{ 'status-dot--live' if a.is_admin else 'status-dot--done' }}"></span>
           {{ a.username }}
-          <span class="tag tag--ghost" style="margin-left: 0.35rem;">{{ a.role }}</span>
+          <span class="tag tag--ghost" style="margin-left: 0.35rem;">{% if a.is_admin %}Admin{% elif a.is_league_operator %}Operator{% else %}User{% endif %}</span>
           {% if a.id == current_user.id %}<span class="tag tag--accent" style="margin-left: 0.25rem;">You</span>{% endif %}
         </span>
         {% if a.id != current_user.id %}
         <form method="post" action="{{ url_for('admin.admin_delete_admin', aid=a.id) }}"
-              onsubmit="return confirm('Remove {{ a.role }} {{ a.username }}?')">
+              onsubmit="return confirm('Remove user {{ a.username }}?')">
           <button class="btn btn-outline-danger btn-xs">Remove</button>
         </form>
         {% endif %}
@@ -109,13 +109,18 @@
       <div class="eyebrow eyebrow--accent">Add Account</div>
       <div class="form-field form-field--row">
         <input type="text" name="username" class="form-control" placeholder="Username" required>
-        <select name="role" class="form-select">
-          <option value="manager">Manager</option>
-          <option value="admin">Admin</option>
-        </select>
+        <input type="password" name="password" class="form-control" placeholder="Password (min 6 chars)" required minlength="6">
       </div>
       <div class="form-field">
-        <input type="password" name="password" class="form-control" placeholder="Password (min 6 chars)" required minlength="6">
+        <label class="form-checkbox d-inline-flex align-items-center" style="margin-right: 1rem;">
+          <input type="checkbox" name="is_admin" value="1">
+          <span style="margin-left: 0.4rem;">Admin</span>
+        </label>
+        <label class="form-checkbox d-inline-flex align-items-center">
+          <input type="checkbox" name="is_league_operator" value="1">
+          <span style="margin-left: 0.4rem;">League Operator</span>
+        </label>
+        <p class="form-help">Either, both, or neither. Operators can create leagues; admins can do anything.</p>
       </div>
       <div class="form-actions">
         <button type="submit" class="btn btn-outline-primary btn-sm">Create Account</button>
@@ -316,4 +321,32 @@
   </table>
   </div>
 </section>
+
+<!-- ═══ Bars DB ═══ -->
+<section class="admin-block">
+  <div class="section-head">
+    <h2 class="section-head__title">Bars</h2>
+    <span class="section-head__count">{{ bars|length }}</span>
+  </div>
+  {% if bars %}
+  <ul class="delegate-list">
+    {% for b in bars %}
+    <li class="delegate-list__item">
+      <span class="delegate-list__name">
+        <span class="status-dot status-dot--live"></span>
+        <a href="{{ url_for('bars.bar_dashboard', bid=b.id) }}">{{ b.name }}</a>
+        {% set primary = b.memberships|selectattr('is_primary')|first %}
+        {% if primary %}
+        <span class="tag tag--ghost" style="margin-left: 0.35rem;">{{ primary.user.username }}</span>
+        {% endif %}
+        <span class="eyebrow" style="margin-left: 0.6rem;">{{ b.sponsorships|length }} league{{ 's' if b.sponsorships|length != 1 else '' }}</span>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="share-block__empty eyebrow">No bars yet</p>
+  {% endif %}
+</section>
+
 {% endblock %}
