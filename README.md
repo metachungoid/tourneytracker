@@ -18,10 +18,75 @@ A web-based tournament management app built for pool halls and billiards leagues
 - **Quick-add players** to tournaments directly from the registration screen
 - **Player rankings** based on tournament wins and match wins
 
-### Admin
-- **Login-protected admin panel** -- only admins can create tournaments and manage results
-- **Multiple admin accounts** with password management
-- **Default admin** created on first run (username: `admin`, password: `admin123` -- change this immediately)
+### Leagues & Bars
+- **Leagues** are owned by a User and host league-wide tournaments and player profiles
+- **Bars** are venues with their own dashboard and can host their own one-off recreational tournaments
+- **Bar staff** -- a Bar has one *primary* member (the owner) and any number of additional staff, all able to manage the bar's tournaments
+
+### Sponsorships
+- A Bar **sponsors a League** to grant its staff the ability to act inside that league (e.g. create teams)
+- League dashboards expose **invite existing bar**, **onboard a new bar**, and **remove sponsor** flows
+- Sponsorship is what gates the per-league capabilities the bar's staff get -- without it, they only see their own bar
+
+### Teams & Rosters
+- **Teams** are sponsored by a Bar and compete in exactly one League (only allowed when that bar sponsors the league)
+- **Rosters** are managed by Bar Staff: add or remove players from the league's player pool
+- **Per-membership role flags:** Captain, Co-Captain, Scorekeeper, Sub. Each team has at most one Captain and one Co-Captain (enforced by partial unique indexes); any number of Scorekeepers and Subs
+- **Captains and Co-Captains can assign Scorekeepers** on their own team
+- **Inline account creation** -- promoting a player to a role that needs to log in (Captain, Co-Captain, Scorekeeper) prompts you to create a username/password for them on the spot if their `PlayerProfile` has no linked `User`
+- **`/my-teams`** lists every team the logged-in user plays on, with role badges
+
+### Roles & Access
+Two role flags live on the `User` row, set independently:
+
+| Flag | Capability |
+|------|------------|
+| `is_admin` | Bypasses all permission checks; can create leagues and bars; can promote other users to League Operator from the Admin panel |
+| `is_league_operator` | Can create new leagues and bars; manages anything they own |
+
+Beyond those flags, finer-grained access is **earned by relationship**:
+- **League ownership** -> manage the league
+- **Bar membership** -> manage the bar (and any tournaments it hosts)
+- **Bar membership + LeagueSponsorship** -> act as a sponsor inside that league (e.g. create teams)
+- **TeamMembership.is_captain / is_co_captain** -> assign scorekeepers on that team
+
+The default admin (`admin` / `admin123`) is created on first run -- **change the password immediately**.
+
+After login, users land on the most relevant page they have access to: **a league they own** > **a bar they belong to** > the public home.
+
+## Data Model
+
+```
+User ──owns──> League ─────────hosts────> Tournament ──> Match
+ │              ▲                            ▲
+ │              │ sponsored_by               │ optionally hosted_by
+ │              │                            │
+ │              └── LeagueSponsorship ──> Bar ──hosts──> Tournament (recreational)
+ │                                        │
+ │                                        └── BarMembership <── User (staff; one is_primary)
+ │
+ │  PlayerProfile ──(optional user_id)──> User (login)
+ │       │
+ │       └── TeamMembership ──> Team ──sponsored_by──> Bar
+ │              (role flags)         └──competes_in──> League
+ │
+ └─ Team.creator
+```
+
+| Entity | Purpose | Key fields |
+|--------|---------|-----------|
+| `User` | Login account | `username`, `password_hash`, `is_admin`, `is_league_operator` |
+| `League` | A competitive container with rankings and tournaments | `name`, `owner_id` |
+| `Bar` | A venue with staff, sponsorships, and recreational tournaments | `name`, `created_by_id` |
+| `BarMembership` | Joins User <-> Bar | `user_id`, `bar_id`, `is_primary` (partial-unique per bar) |
+| `LeagueSponsorship` | Joins League <-> Bar | `league_id`, `bar_id`, `invited_by_id`, `invited_at` |
+| `PlayerProfile` | A player record (with rating, stats); optionally linked to a `User` for login | `first_name`, `last_name`, `league_id`, `user_id` (nullable) |
+| `Tournament` | A bracket; belongs to *either* a league or a bar (mutually exclusive) | `name`, `format`, `league_id` xor `bar_id` |
+| `Team` | A roster sponsored by a bar competing in a league | `name`, `bar_id`, `league_id` |
+| `TeamMembership` | Joins Team <-> PlayerProfile with role flags | `team_id`, `profile_id`, `is_captain`, `is_co_captain`, `is_scorekeeper`, `is_sub` |
+| `Participant` / `Match` | Bracket entries and the matches between them | -- |
+
+Authorization predicates live next to the data they protect: `League.can_manage`, `Bar.can_manage`, `Bar.can_manage_staff`, `Tournament.can_manage`, `Team.can_manage_roster`, `Team.can_assign_scorekeeper`, `Team.is_member`. Cross-cutting checks (`can_create_league`, `can_create_bar`, `can_promote_user`, `can_act_as_sponsor`, `can_create_team`) live in `auth_helpers.py`.
 
 ## Running Locally
 
@@ -119,5 +184,10 @@ You just push code and your Unraid server updates itself.
 1. Open the app at `http://<your-unraid-ip>:5050`
 2. Log in with the default credentials: **admin** / **admin123**
 3. **Change the admin password immediately** from the Admin panel
-4. Add your player roster under Players
-5. Create your first tournament
+4. (Optional) From the Admin panel, promote one or more users to **League Operator** so they can run their own leagues and bars
+5. Create a **League** (or have a League Operator do it)
+6. Create a **Bar** and have its primary member invite any additional staff
+7. From the league dashboard, **invite the bar to sponsor the league**
+8. Add your player roster under Players (or per-league via the league dashboard)
+9. From the bar dashboard, create a **Team** in the sponsored league and add players to its roster; promote a Captain to unlock the inline-account-creation flow
+10. Create your first tournament
