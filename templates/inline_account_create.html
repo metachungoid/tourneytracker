@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Create login — TourneyTracker{% endblock %}
+{% block content %}
+<header class="page-hero">
+  <h1 class="page-hero__title">Create login for {{ membership.profile.full_name }}</h1>
+  <p class="page-hero__sub">{{ team.name }} · {{ role.replace('_', ' ').title() }}</p>
+</header>
+
+{% if error %}<p class="alert alert-danger">{{ error }}</p>{% endif %}
+
+<p>Promoting this player to <strong>{{ role.replace('_', ' ').title() }}</strong> requires a login. Pick a username and password to share with them out-of-band.</p>
+
+<form method="post" action="{{ url_for(target_endpoint, tid=team.id, mid=membership.id) }}" class="form-stack">
+  {% if role != 'scorekeeper' %}
+  <input type="hidden" name="role" value="{{ role }}">
+  {% endif %}
+  <input type="hidden" name="create_account" value="1">
+  <div class="form-field">
+    <label class="form-label">Username</label>
+    <input type="text" name="username" class="form-control" required
+           value="{{ (membership.profile.first_name + '.' + membership.profile.last_name)|lower }}">
+  </div>
+  <div class="form-field">
+    <label class="form-label">Password (6+ chars)</label>
+    <input type="password" name="password" class="form-control" required minlength="6">
+  </div>
+  <button class="btn btn-primary">Create and assign role</button>
+  <a href="{{ url_for('teams.team_dashboard', tid=team.id) }}" class="btn btn-link">Cancel</a>
+</form>
+{% endblock %}

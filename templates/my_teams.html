@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}My Teams — TourneyTracker{% endblock %}
+{% block content %}
+<header class="page-hero">
+  <h1 class="page-hero__title">My Teams</h1>
+</header>
+
+{% if memberships %}
+  <ul class="sponsors-list">
+    {% for m in memberships %}
+      <li>
+        <a href="{{ url_for('teams.team_dashboard', tid=m.team_id) }}">{{ m.team.name }}</a>
+        <span class="muted">{{ m.team.league.name }} · {{ m.team.bar.name }}</span>
+        {% if m.is_captain %}<span class="badge">Captain</span>{% endif %}
+        {% if m.is_co_captain %}<span class="badge">Co-Captain</span>{% endif %}
+        {% if m.is_scorekeeper %}<span class="badge">Scorekeeper</span>{% endif %}
+        {% if m.is_sub %}<span class="badge muted">Sub</span>{% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="muted">You're not on any teams yet.</p>
+{% endif %}
+{% endblock %}

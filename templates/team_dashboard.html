@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}{{ team.name }} — TourneyTracker{% endblock %}
+{% block content %}
+<header class="page-hero">
+  <div>
+    <h1 class="page-hero__title">{{ team.name }}</h1>
+    <p class="page-hero__sub">{{ team.bar.name }} · {{ team.league.name }}</p>
+  </div>
+</header>
+
+<section class="admin-block">
+  <div class="section-head">
+    <h2 class="section-head__title">Roster</h2>
+    <span class="section-head__count">{{ roster|length }}</span>
+  </div>
+  {% if roster %}
+    <ul class="sponsors-list">
+      {% for m in roster %}
+        <li>
+          <strong>{{ m.profile.full_name }}</strong>
+          {% if m.is_captain %}<span class="badge">Captain</span>{% endif %}
+          {% if m.is_co_captain %}<span class="badge">Co-Captain</span>{% endif %}
+          {% if m.is_scorekeeper %}<span class="badge">Scorekeeper</span>{% endif %}
+          {% if m.is_sub %}<span class="badge muted">Sub</span>{% endif %}
+          {% if can_manage %}
+            <form method="post" action="{{ url_for('teams.roster_role', tid=team.id, mid=m.id) }}" style="display:inline">
+              <button name="role" value="captain" class="btn btn-link">{{ 'Demote' if m.is_captain else 'Make Captain' }}</button>
+              <button name="role" value="co_captain" class="btn btn-link">{{ 'Demote' if m.is_co_captain else 'Make Co-Captain' }}</button>
+              <button name="role" value="sub" class="btn btn-link">{{ 'Unsub' if m.is_sub else 'Mark Sub' }}</button>
+            </form>
+          {% endif %}
+          {% if can_assign_sk %}
+            <form method="post" action="{{ url_for('teams.roster_scorekeeper', tid=team.id, mid=m.id) }}" style="display:inline">
+              <button class="btn btn-link">{{ 'Revoke Scorekeeper' if m.is_scorekeeper else 'Make Scorekeeper' }}</button>
+            </form>
+          {% endif %}
+          {% if can_manage %}
+            <form method="post" action="{{ url_for('teams.roster_remove', tid=team.id, mid=m.id) }}" style="display:inline">
+              <button class="btn btn-link btn-danger">Remove</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No players on the roster yet.</p>
+  {% endif %}
+
+  {% if can_manage and invitable %}
+    <form method="post" action="{{ url_for('teams.roster_add', tid=team.id) }}" class="form-stack form-stack--inline">
+      <select name="profile_id" class="form-control" required>
+        <option value="">Pick a player…</option>
+        {% for p in invitable %}
+          <option value="{{ p.id }}">{{ p.full_name }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn btn-primary">Add to roster</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

@@ -449,6 +449,75 @@ class LeagueSponsorship(db.Model):
     )
 
 
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    bar_id = db.Column(db.Integer, db.ForeignKey('bar.id'), nullable=False)
+    league_id = db.Column(db.Integer, db.ForeignKey('league.id'), nullable=False)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=True)
+
+    bar = db.relationship('Bar', foreign_keys=[bar_id], backref='teams')
+    league = db.relationship('League', foreign_keys=[league_id], backref='teams')
+    creator = db.relationship('User', foreign_keys=[created_by_id])
+    # memberships backref is added via TeamMembership.team relationship below
+
+    def can_manage_roster(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        return self.bar.can_manage(user)
+
+    def can_assign_scorekeeper(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if user.is_admin:
+            return True
+        if self.can_manage_roster(user):
+            return True
+        # captain or co-captain on this team
+        return TeamMembership.query.filter(
+            TeamMembership.team_id == self.id,
+            db.or_(TeamMembership.is_captain == True,    # noqa: E712
+                   TeamMembership.is_co_captain == True),  # noqa: E712
+            TeamMembership.profile.has(user_id=user.id),
+        ).first() is not None
+
+    def is_member(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        return TeamMembership.query.filter(
+            TeamMembership.team_id == self.id,
+            TeamMembership.profile.has(user_id=user.id),
+        ).first() is not None
+
+
+class TeamMembership(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    profile_id = db.Column(db.Integer, db.ForeignKey('player_profile.id'), nullable=False)
+    is_captain = db.Column(db.Boolean, nullable=False, default=False)
+    is_co_captain = db.Column(db.Boolean, nullable=False, default=False)
+    is_scorekeeper = db.Column(db.Boolean, nullable=False, default=False)
+    is_sub = db.Column(db.Boolean, nullable=False, default=False)
+
+    team = db.relationship(
+        'Team', foreign_keys=[team_id],
+        backref=db.backref('memberships', cascade='all, delete-orphan')
+    )
+    profile = db.relationship('PlayerProfile', foreign_keys=[profile_id],
+                              backref=db.backref('team_memberships', cascade='all'))
+
+    __table_args__ = (
+        db.UniqueConstraint('team_id', 'profile_id', name='uq_team_membership_team_profile'),
+        db.Index('uq_team_captain', 'team_id',
+                 unique=True, sqlite_where=db.text('is_captain = 1')),
+        db.Index('uq_team_co_captain', 'team_id',
+                 unique=True, sqlite_where=db.text('is_co_captain = 1')),
+    )
+
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tournament_id = db.Column(db.Integer, db.ForeignKey('tournament.id'), nullable=False)

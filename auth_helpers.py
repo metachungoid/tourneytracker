@@ -47,3 +47,12 @@ def can_act_as_sponsor(user, league, bar):
     return LeagueSponsorship.query.filter_by(
         league_id=league.id, bar_id=bar.id
     ).first() is not None
+
+
+def can_create_team(user, bar, league):
+    """A team can be created when its bar sponsors its league.
+
+    Admins always pass; otherwise both bar membership AND a
+    LeagueSponsorship row are required (delegates to can_act_as_sponsor).
+    """
+    return can_act_as_sponsor(user, league, bar)
