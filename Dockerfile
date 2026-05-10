@@ -21,4 +21,4 @@ ENV FLASK_DEBUG=0
 
 EXPOSE 5050
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5050", "--workers", "2", "app:app"]
+CMD ["gunicorn", "--preload", "--bind", "0.0.0.0:5050", "--workers", "2", "app:app"]
