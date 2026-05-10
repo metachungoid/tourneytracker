@@ -7,6 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 COPY app.py .
 COPY models.py .
+COPY app_migrations.py .
+COPY auth_helpers.py .
 COPY bracket/ bracket/
 COPY routes/ routes/
 COPY templates/ templates/
